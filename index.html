@@ -282,9 +282,12 @@
   .mic-btn.stop{background:var(--warn-red);} .mic-btn svg{width:20px;height:20px;}
   .mic-hint{font-size:11.5px;color:var(--ink-3);margin:8px 2px 0;line-height:1.45;}
   .sim-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .sim-btn{background:var(--im-mint-bg);border:1.5px solid var(--im-mint-soft);color:#25463e;border-radius:12px;padding:11px 8px;font-size:13px;font-weight:700;cursor:pointer;line-height:1.3;text-align:center;}
+  .sim-btn{position:relative;background:var(--im-mint-bg);border:1.5px solid var(--im-mint-soft);color:#25463e;border-radius:12px;padding:11px 8px;font-size:13px;font-weight:700;cursor:pointer;line-height:1.3;text-align:center;}
   .sim-btn:active{transform:scale(.96);}
   .sim-btn .emo{display:block;font-size:16px;margin-bottom:3px;}
+  /* 경상도 사투리 표현: 눈에 띄게 (민트 강조 + '경상도' 뱃지) */
+  .sim-btn.dia{background:#e9faf5;border-color:var(--im-mint);}
+  .sim-btn .dia-tag{display:inline-block;margin-left:5px;font-size:9px;font-weight:800;color:#fff;background:var(--im-green);border-radius:6px;padding:1px 5px;vertical-align:middle;letter-spacing:0;}
   .heard{background:#f4f7f6;border-radius:12px;padding:12px 13px;font-size:13px;color:var(--ink-2);min-height:44px;line-height:1.5;margin-top:8px;}
   .heard b{color:var(--ink);} .heard .quote{color:var(--im-green-d);font-weight:800;}
   .nav-mini{display:flex;flex-wrap:wrap;gap:5px;}
@@ -503,7 +506,7 @@
     <div class="sec">🎤 실제 음성으로 말하기</div>
     <button class="mic-btn" id="micBtn" onclick="toggleMic()"><span data-ic="mic" id="micBtnIcon"></span> <span id="micBtnLabel">음성으로 말하기</span></button>
     <div class="mic-hint" id="micHint">브라우저 마이크 권한을 허용하면 혼잣말을 실제로 인식합니다. (Chrome 권장)</div>
-    <div class="sec">🗣️ 혼잣말 눌러보기</div>
+    <div class="sec">🗣️ 혼잣말 눌러보기 <span style="font-weight:600;color:var(--im-green-d);">— 경상도 사투리도 알아들어요</span></div>
     <div class="sim-grid" id="simGrid"></div>
     <div class="sec">👂 우디가 들은 말</div>
     <div class="heard" id="heard">아직 들은 말이 없어요.</div>
@@ -680,24 +683,54 @@ function clearAmt(){ amount=0; refreshAmt(); }
    pulse=은은한 글로우(정보부족), spotlight=화면 어둡게+대상(혼란),
    arrow=화살표+짧은툴팁(실수), soft=따뜻한 부드러운 테두리·안 어둡게(불안/경고), celebrate=축하(완료) */
 const REACTIONS = [
-  { id:'info', label:'계좌번호가 뭐였더라', emoji:'🤔', keywords:['계좌번호','뭐였더라','번호','계좌가','어디다'],
+  { id:'info', label:'계좌번호가 뭐였더라', emoji:'🤔', keywords:['계좌번호','뭐였더라','번호','계좌가','어디다','어데','우예 넣','몇 번'],
     step:2, coach:'pulse', spot:'#acct-field', text:'손자분 <span class="hl">계좌번호</span>는 문자로 받으신 걸 보시면 돼요. 이 칸을 눌러 <span class="hl">천천히</span> 입력해 보셔요.' },
-  { id:'confuse', label:'이게 뭐여, 몰것다', emoji:'😵', keywords:['이게 뭐여','뭐여','몰것다','모르겠','어떻게','뭐지','어렵','헷갈'],
+  { id:'confuse', label:'이게 뭐여, 몰것다', emoji:'😵', keywords:['이게 뭐여','뭐여','몰것다','모르겠','어떻게','뭐지','어렵','헷갈','뭐꼬','우예 하','당최','뭐가 뭔지'],
     step:3, coach:'spotlight', spot:'#screen-amount .keypad', text:'지금 보시는 건 <span class="hl">숫자 입력판</span>이에요. 5만원은 <span class="hl">5, 0, 0, 0, 0</span> 순서로 눌러주시면 돼요.' },
-  { id:'mistake', label:'아이고 잘못 눌렀네', emoji:'😣', keywords:['잘못','실수','어떡','지우','틀렸','다시','오타'],
+  { id:'mistake', label:'아이고 잘못 눌렀네', emoji:'😣', keywords:['잘못','실수','어떡','지우','틀렸','다시','오타','눌렀뿟','틀맀','삐끗'],
     step:null, coach:'arrow', spot:'#amt-back', tip:'여기를 누르면 지워져요', text:'괜찮아요. 오른쪽 아래 <span class="hl">← 버튼</span>을 누르시면 하나씩 지워져요. <span class="hl">천천히</span> 하셔요.' },
-  { id:'anxious', label:'이거 맞나… 무섭네', emoji:'😟', keywords:['맞나','무섭','잘못되','괜찮은','불안','걱정','사기','겁나'],
+  { id:'anxious', label:'이거 맞나… 무섭네', emoji:'😟', keywords:['맞나','무섭','무서','잘못되','괜찮은','불안','걱정','사기','겁나','이래 해도','몬하'],
     step:4, coach:'soft', spot:'.cf-title,.detail', text:'화면에 <span class="hl">받는 분과 금액</span>이 표시돼 있어요. 그 정보가 맞으면 이체하기를 누르시면 돼요. <span class="hl">천천히 확인</span>해 보셔요.' },
-  { id:'warning', label:'빨간 글씨가 떴어', emoji:'🔴', keywords:['빨간','빨강','붉은','경고','1년','일년','이체내역','없는 계좌','없는계좌'],
+  { id:'warning', label:'빨간 글씨가 떴어', emoji:'🔴', keywords:['빨간','빨강','붉은','경고','1년','일년','이체내역','없는 계좌','없는계좌','빨갛','와 빨'],
     step:4, coach:'soft', spot:'#warn-line', text:'그 빨간 글씨는 <span class="hl">\'이 계좌로 처음 보내신다\'</span>는 안내예요. 잘못된 게 아니에요. 받는 분과 금액이 맞으면 <span class="hl">안심하고</span> 진행하셔도 돼요.' },
-  { id:'done', label:'됐다, 다 했어!', emoji:'🎉', keywords:['됐다','완료','다 했','다했','보냈','끝났','성공'],
+  { id:'done', label:'됐다, 다 했어!', emoji:'🎉', keywords:['됐다','완료','다 했','다했','보냈','끝났','성공','했뿟','다 됐','다 끝'],
     step:null, coach:'celebrate', spot:null, text:'잘하셨어요! 오늘은 <span class="hl">세 번</span> 도와드렸는데, 다음번엔 <span class="hl">한 번만</span> 여쭤보셔도 될 것 같아요.' },
 ];
 const FALLBACK = { text:'어디를 도와드릴까요? <span class="hl">\'이게 뭐여\'</span>, <span class="hl">\'계좌번호가 뭐였더라\'</span>처럼 편하게 말씀하셔도 돼요.', step:null, coach:null, spot:null };
 
+/* 혼잣말 예시 표현 (표준어 + 경상도 사투리). r=연결 유형, dia=사투리 표시.
+   버튼을 누르면 handleUtterance→matchReaction으로 해당 유형의 코치마크가 자동 발동. */
+const SIM_UTTERANCES = [
+  { q:'계좌번호가 뭐였더라', r:'info' },
+  { q:'번호가 어데 있노', r:'info', dia:true },
+  { q:'계좌번호를 우예 넣노', r:'info', dia:true },
+  { q:'이게 뭐여', r:'confuse' },
+  { q:'이기 뭐꼬', r:'confuse', dia:true },
+  { q:'우예 하노', r:'confuse', dia:true },
+  { q:'당최 뭐가 뭔지 모르겠다', r:'confuse', dia:true },
+  { q:'아이고 잘못 눌렀네', r:'mistake' },
+  { q:'잘못 눌렀뿟다', r:'mistake', dia:true },
+  { q:'이거 우예 지우노', r:'mistake', dia:true },
+  { q:'이거 맞나 무섭네', r:'anxious' },
+  { q:'이래 해도 맞나', r:'anxious', dia:true },
+  { q:'겁나서 몬하겠다', r:'anxious', dia:true },
+  { q:'와 빨갛노', r:'warning', dia:true },
+  { q:'빨간 글씨 떴다 아이가', r:'warning', dia:true },
+  { q:'빨간 경고가 떴어요', r:'warning' },
+  { q:'됐다, 다 했어', r:'done' },
+  { q:'됐다 아이가', r:'done', dia:true },
+  { q:'다 했뿟다', r:'done', dia:true },
+  { q:'보냈뿟다 이제', r:'done', dia:true },
+];
+
 function renderSim(){
-  document.getElementById('simGrid').innerHTML=
-    REACTIONS.map(r=>'<button class="sim-btn" onclick="handleUtterance(\''+r.label.replace(/'/g,"\\'")+'\')"><span class="emo">'+r.emoji+'</span>'+r.label+'</button>').join('')
+  const emo={}; REACTIONS.forEach(r=>emo[r.id]=r.emoji);
+  const btns=SIM_UTTERANCES.map(u=>
+    '<button class="sim-btn'+(u.dia?' dia':'')+'" onclick="handleUtterance(\''+u.q.replace(/'/g,"\\'")+'\')">'
+    +'<span class="emo">'+(emo[u.r]||'💬')+'</span>'+u.q
+    +(u.dia?'<span class="dia-tag">경상도</span>':'')+'</button>'
+  ).join('');
+  document.getElementById('simGrid').innerHTML=btns
     +'<button class="sim-btn" style="grid-column:span 2;background:#f4f7f6;border-color:var(--line);color:var(--ink-2);" onclick="handleUtterance(\'오늘 날씨 좋네\')"><span class="emo">❓</span>매칭 안 되는 말 (예: "오늘 날씨 좋네")</button>';
 }
 const STEP_NAMES=['홈','받는사람','계좌입력','금액','확인','완료'];
