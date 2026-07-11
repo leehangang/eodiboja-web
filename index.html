@@ -267,6 +267,36 @@
   .nav-mini button.cur{background:var(--im-green);color:#fff;border-color:var(--im-green);}
   .principle{font-size:11px;color:var(--ink-3);line-height:1.5;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);}
   .principle b{color:var(--im-green-d);}
+
+  /* ══ 앱 진입 시퀀스: 스플래시 + 지문 인증 ══ */
+  .boot{position:absolute;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;transition:opacity .5s ease;}
+  .boot.hidden{opacity:0;pointer-events:none;}
+  .boot.gone{display:none;}
+  /* 스플래시 */
+  .splash .logo-wrap{display:flex;flex-direction:column;align-items:center;gap:18px;animation:bootpop .6s cubic-bezier(.22,1,.36,1) both;}
+  .splash .sym-tile{width:96px;height:96px;border-radius:26px;background:var(--im-grad);display:flex;align-items:center;justify-content:center;box-shadow:0 16px 36px rgba(0,199,169,.35);overflow:hidden;}
+  .splash .sym-tile img{width:58%;height:auto;display:block;}
+  .splash .wordmark{font-size:28px;font-weight:800;color:var(--im-gray);letter-spacing:-.6px;}
+  .splash .sp-bar{position:absolute;bottom:80px;width:130px;height:4px;border-radius:3px;background:#e6ebe9;overflow:hidden;}
+  .splash .sp-bar::after{content:"";position:absolute;top:0;bottom:0;left:-45%;width:45%;background:var(--im-mint);border-radius:3px;animation:barslide 1.05s ease-in-out infinite;}
+  @keyframes barslide{0%{left:-45%}100%{left:100%}}
+  .splash .sp-tag{position:absolute;bottom:48px;font-size:12.5px;color:var(--ink-3);font-weight:600;}
+  @keyframes bootpop{from{opacity:0;transform:scale(.86)}to{opacity:1;transform:none}}
+  /* 지문 인증 */
+  .bio .bio-top{position:absolute;top:56px;font-size:19px;font-weight:800;color:var(--im-gray);letter-spacing:-.5px;}
+  .bio .fp-wrap{position:relative;width:120px;height:120px;display:flex;align-items:center;justify-content:center;}
+  .bio .fp-ring{position:absolute;width:110px;height:110px;border-radius:50%;border:3px solid var(--im-mint);animation:fppulse 1.5s ease-out infinite;}
+  .bio .fp{width:78px;height:78px;color:var(--im-mint);}
+  .bio .fp svg{width:100%;height:100%;}
+  .bio .fp-check{position:absolute;width:118px;height:118px;border-radius:50%;background:#22c58a;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.5);transition:all .35s cubic-bezier(.22,1.5,.4,1);box-shadow:0 10px 26px rgba(34,197,138,.4);}
+  .bio .fp-check svg{width:58px;height:58px;}
+  .bio.ok .fp,.bio.ok .fp-ring{opacity:0;}
+  .bio.ok .fp-check{opacity:1;transform:scale(1);}
+  .bio .bio-msg{margin-top:32px;font-size:20px;font-weight:800;color:var(--ink);letter-spacing:-.4px;}
+  .bio .bio-sub{margin-top:9px;font-size:14px;color:var(--ink-2);height:18px;}
+  .bio .bio-skip{position:absolute;bottom:40px;font-size:12px;color:var(--ink-3);font-weight:600;}
+  @keyframes fppulse{0%{transform:scale(.8);opacity:.5}100%{transform:scale(1.25);opacity:0}}
+  @media(prefers-reduced-motion:reduce){.splash .sp-bar::after,.bio .fp-ring,.splash .logo-wrap{animation:none!important;}}
 </style>
 </head>
 <body>
@@ -451,7 +481,40 @@
     <div class="heard" id="heard">아직 들은 말이 없어요.</div>
     <div class="sec">📱 화면 이동</div>
     <div class="nav-mini" id="navMini"></div>
+    <div class="sec">🔄 진입 화면</div>
+    <button class="mic-btn" style="background:var(--gray-btn);color:#3a4149;" onclick="restartBoot()">스플래시부터 다시 보기</button>
     <div class="principle"><b>설계 원칙</b> — 어디보자(우디)는 실제 이체를 대신 실행하지 않습니다. 다음에 누를 곳을 <b>안내만</b> 하고, 거래가 맞는지 판단은 사용자에게 맡깁니다.</div>
+  </div>
+
+  <!-- ══ 앱 진입 시퀀스: 스플래시 → 지문 인증 → 홈 ══ -->
+  <div class="boot splash" id="splash" onclick="skipToBio()">
+    <div class="logo-wrap">
+      <div class="sym-tile" data-ic="wave"></div>
+      <div class="wordmark">iM Bank</div>
+    </div>
+    <div class="sp-bar"></div>
+    <div class="sp-tag">안전하게 연결하고 있어요…</div>
+  </div>
+  <div class="boot bio gone" id="biometric" onclick="skipBio()">
+    <div class="bio-top">iM Bank</div>
+    <div class="fp-wrap">
+      <div class="fp-ring"></div>
+      <div class="fp" id="fp">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M24 21.5c-1.9 0-3.4 1.6-3.4 3.6 0 4 1 8 2.6 11.5"/>
+          <path d="M17 40c-1.6-3-2.5-6.6-2.5-10.6"/>
+          <path d="M31 39.5c1.4-2.9 2.3-6.3 2.3-9.6"/>
+          <path d="M24 15c-5.4 0-9.7 4.4-9.7 9.8 0 1.9.2 3.7.6 5.4"/>
+          <path d="M33.7 30.2c.4-1.7.6-3.6.6-5.4 0-3.1-1.4-5.9-3.7-7.7"/>
+          <path d="M9 25.5c0-8.3 6.8-15 15-15 3.6 0 6.9 1.2 9.5 3.3"/>
+          <path d="M39 25.2c0 1.8-.1 3.7-.4 5.4"/>
+        </svg>
+      </div>
+      <div class="fp-check" id="fpCheck"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5l5 5L19 7" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    </div>
+    <div class="bio-msg" id="bio-msg">지문으로 로그인</div>
+    <div class="bio-sub" id="bio-sub">센서에 손가락을 올려주세요</div>
+    <div class="bio-skip">화면을 누르면 건너뜁니다</div>
   </div>
 
 </div>
@@ -689,6 +752,51 @@ function tick(){ const d=new Date(); let h=d.getHours(); const m=String(d.getMin
 
 /* ═══════════ 초기화 ═══════════ */
 paintIcons(); renderHeader(); renderSim(); renderNavMini(); refreshAmt(); tick(); setInterval(tick,15000);
+
+/* ═══════════ 앱 진입 시퀀스 (스플래시 → 지문 인증 → 홈) ═══════════ */
+let bootTimers=[];
+function clearBootTimers(){ bootTimers.forEach(clearTimeout); bootTimers=[]; }
+function runBoot(){
+  clearBootTimers();
+  const sp=document.getElementById('splash'), bio=document.getElementById('biometric');
+  sp.classList.remove('hidden','gone');
+  bio.classList.remove('hidden','ok'); bio.classList.add('gone');
+  document.getElementById('bio-msg').textContent='지문으로 로그인';
+  document.getElementById('bio-sub').textContent='센서에 손가락을 올려주세요';
+  bootTimers.push(setTimeout(showBio, 1700));   // 스플래시 1.7초
+}
+function showBio(){
+  const sp=document.getElementById('splash'), bio=document.getElementById('biometric');
+  sp.classList.add('hidden'); bootTimers.push(setTimeout(()=>sp.classList.add('gone'),500));
+  bio.classList.remove('gone','hidden','ok');
+  document.getElementById('bio-msg').textContent='지문으로 로그인';
+  document.getElementById('bio-sub').textContent='센서에 손가락을 올려주세요';
+  bootTimers.push(setTimeout(()=>{ document.getElementById('bio-msg').textContent='인식 중…'; },800));
+  bootTimers.push(setTimeout(()=>{
+    bio.classList.add('ok');
+    document.getElementById('bio-msg').textContent='인식되었습니다';
+    document.getElementById('bio-sub').textContent='';
+  },1600));
+  bootTimers.push(setTimeout(finishBoot, 2500));
+}
+function finishBoot(){
+  clearBootTimers();
+  const bio=document.getElementById('biometric');
+  bio.classList.add('hidden'); setTimeout(()=>bio.classList.add('gone'),500);
+}
+function skipToBio(){ clearBootTimers(); showBio(); }        // 스플래시 탭 → 지문 단계로
+function skipBio(){ finishBoot(); }                          // 지문 탭 → 홈으로
+function restartBoot(){ closeSheet(); clearGuide(); goStep(0); runBoot(); }
+
+/* 진입 시퀀스는 데모/캡처 파라미터가 없을 때만 재생 (?boot=0 로 강제 건너뛰기) */
+(function initBoot(){
+  const q=location.search;
+  if(/boot=0/.test(q) || /[?&](step|guide|sheet)=/.test(q)){
+    document.getElementById('splash').classList.add('gone');
+    document.getElementById('biometric').classList.add('gone');
+  } else { runBoot(); }
+})();
+
 if(!(window.SpeechRecognition||window.webkitSpeechRecognition)){
   document.getElementById('micHint').innerHTML='ℹ️ 이 브라우저는 실시간 음성 인식을 지원하지 않을 수 있어요. 그럴 땐 아래 <b>혼잣말 버튼</b>으로 체험하세요. (Chrome 권장)';
 }
