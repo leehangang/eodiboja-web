@@ -363,6 +363,43 @@
   .sheet-reset{flex:0 0 auto;border:1px solid #e3e8e6;background:#f2f5f4;color:#5b6167;border-radius:12px;padding:12px 14px;font-size:12.5px;font-weight:800;cursor:pointer;}
   .assist-toggle-btn:active,.sheet-reset:active{transform:scale(.97);}
 
+  /* AI 이해 모드(LLM/규칙) 설정 */
+  .sc-mode{background:#eef4ff;border:1.5px solid #cfe0ff;color:#2b62c9;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:6px;}
+  .sc-mode .dot{width:7px;height:7px;border-radius:50%;background:#2b62c9;}
+  .stage-ctrl.mode-rule .sc-mode{background:#f2f5f4;border-color:#e3e8e6;color:#5b6167;}
+  .stage-ctrl.mode-rule .sc-mode .dot{background:#98a0a7;}
+  .ai-cfg{border:1px solid var(--line);border-radius:14px;padding:12px;margin:2px 0 4px;background:#fbfdff;}
+  .ai-seg{display:flex;gap:6px;background:#eef1f4;border-radius:11px;padding:4px;margin-bottom:10px;}
+  .ai-seg button{flex:1;border:none;background:transparent;border-radius:8px;padding:9px 6px;font-size:13px;font-weight:800;color:#7b828a;cursor:pointer;transition:.18s;}
+  .ai-seg button.on{background:#fff;color:var(--im-green-d);box-shadow:0 2px 6px rgba(0,0,0,.1);}
+  .ai-seg button.on.llm{color:#2b62c9;}
+  .ai-key-row{display:flex;gap:6px;margin-bottom:8px;}
+  .ai-key-row select{flex:0 0 auto;border:1px solid var(--line);border-radius:9px;padding:8px 6px;font-size:12.5px;font-weight:700;color:var(--ink-2);background:#fff;}
+  .ai-key-row input{flex:1;min-width:0;border:1px solid var(--line);border-radius:9px;padding:9px 10px;font-size:13px;color:var(--ink-1);background:#fff;}
+  .ai-key-row input:focus{outline:none;border-color:var(--im-mint-soft);}
+  .ai-key-btns{display:flex;gap:6px;margin-bottom:8px;}
+  .ai-key-btns button{flex:1;border-radius:9px;padding:9px;font-size:12.5px;font-weight:800;cursor:pointer;border:none;}
+  .ai-save{background:var(--im-green);color:#fff;}
+  .ai-clear{background:#f2f5f4;border:1px solid #e3e8e6 !important;color:#5b6167;}
+  .ai-key-btns button:active{transform:scale(.97);}
+  .ai-note{font-size:11px;line-height:1.5;color:var(--ink-3);}
+  .ai-note b{color:var(--im-green-d);}
+  .ai-note.warn b{color:#c9772b;}
+  .ai-cfg[data-mode="rule"] .ai-key-row,.ai-cfg[data-mode="rule"] .ai-key-btns{display:none;}
+  .ai-badge{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:8px;background:#eef1f4;color:#7b828a;vertical-align:middle;}
+  .ai-badge.llm{background:#eef4ff;color:#2b62c9;}
+  /* 우디가 이해하는 중 (LLM 응답 대기) */
+  .heard .thinking{display:inline-flex;align-items:center;gap:2px;}
+  .heard .thinking i{width:5px;height:5px;border-radius:50%;background:#2b62c9;display:inline-block;animation:thk 1s infinite;}
+  .heard .thinking i:nth-child(2){animation-delay:.15s;} .heard .thinking i:nth-child(3){animation-delay:.3s;}
+  @keyframes thk{0%,60%,100%{opacity:.25;transform:translateY(0);}30%{opacity:1;transform:translateY(-3px);}}
+  .heard .verdict{margin-top:7px;font-size:12.5px;font-weight:700;color:#2b62c9;}
+  .heard .verdict.rule{color:var(--im-green-d);} .heard .verdict.fallback{color:#c9772b;}
+  .heard .verdict .chip{display:inline-block;background:#eef4ff;color:#2b62c9;border-radius:7px;padding:1px 7px;font-weight:800;margin:0 2px;}
+  .heard .verdict.rule .chip{background:var(--im-mint-bg);color:var(--im-green-d);}
+  .heard .verdict.fallback .chip{background:#fbeee0;color:#c9772b;}
+  @media(prefers-reduced-motion:reduce){ .heard .thinking i{animation:none;opacity:.7;} }
+
   /* 어디보자 OFF: 우디·마이크 배지 비활성(숨김) */
   .device.assist-off .fab,.device.assist-off .mic-badge{opacity:0;pointer-events:none;transition:opacity .3s;}
 
@@ -393,6 +430,7 @@
     <span class="sc-state" id="assistState">ON</span>
   </div>
   <div class="sc-hint" id="assistHint">켜짐 — 우디가 옆에서 안내해요</div>
+  <button class="sc-mode" onclick="openSheet()"><span class="dot"></span>AI 이해: <b id="scModeLabel">규칙</b></button>
   <button class="sc-scenario" onclick="openSheet()">🗣️ 혼잣말 시나리오</button>
   <button class="sc-reset" onclick="resetIndependence()">↺ 자립 곡선 초기화</button>
 </div>
@@ -585,6 +623,25 @@
     <div class="sheet-ctrl">
       <button class="assist-toggle-btn" id="assistToggleBtn" onclick="toggleAssistant()">어디보자 <b>켜짐</b> · 눌러서 끄기</button>
       <button class="sheet-reset" onclick="resetIndependence()">↺ 초기화</button>
+    </div>
+    <div class="sec">🧠 AI 이해 모드 <span class="ai-badge" id="aiModeBadge">규칙</span></div>
+    <div class="ai-cfg" id="aiCfg" data-mode="rule">
+      <div class="ai-seg">
+        <button id="segRule" class="on" onclick="setIntentMode('rule')">규칙 기반</button>
+        <button id="segLlm" class="llm" onclick="setIntentMode('llm')">AI가 이해 (LLM)</button>
+      </div>
+      <div class="ai-key-row">
+        <select id="aiProvider" onchange="onProviderChange()">
+          <option value="anthropic">Claude</option>
+          <option value="openai">OpenAI</option>
+        </select>
+        <input type="password" id="aiKey" placeholder="API 키 붙여넣기 (이 브라우저에만 저장)" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="ai-key-btns">
+        <button class="ai-save" onclick="saveAiKey()">키 저장</button>
+        <button class="ai-clear" onclick="clearAiKey()">삭제</button>
+      </div>
+      <div class="ai-note" id="aiNote">규칙 기반: 정해둔 표현만 인식합니다. <b>AI(LLM)</b>로 바꾸면 정의하지 않은 혼잣말도 이해해요.</div>
     </div>
     <div class="sec">🎤 실제 음성으로 말하기</div>
     <button class="mic-btn" id="micBtn" onclick="toggleMic()"><span data-ic="mic" id="micBtnIcon"></span> <span id="micBtnLabel">음성으로 말하기</span></button>
@@ -864,21 +921,173 @@ function renderSim(){
     +'<span class="emo">'+(emo[u.r]||'💬')+'</span>'+u.q
     +(u.dia?'<span class="dia-tag">경상도</span>':'')+'</button>'
   ).join('');
+  const undef=['어 이거 참 뭐라 해야 하나','영 모르겄네 그거','손이 자꾸 헛짚네','이래 눌러도 되나 싶다'];
+  const undefBtns=undef.map(q=>
+    '<button class="sim-btn ai-only" style="grid-column:span 2;background:#eef4ff;border-color:#cfe0ff;color:#2b62c9;" onclick="handleUtterance(\''+q.replace(/'/g,"\\'")+'\')">'
+    +'<span class="emo">🧠</span>'+q+'<span class="dia-tag" style="background:#2b62c9;">AI만 이해</span></button>').join('');
   document.getElementById('simGrid').innerHTML=btns
-    +'<button class="sim-btn" style="grid-column:span 2;background:#f4f7f6;border-color:var(--line);color:var(--ink-2);" onclick="handleUtterance(\'오늘 날씨 좋네\')"><span class="emo">❓</span>매칭 안 되는 말 (예: "오늘 날씨 좋네")</button>';
+    +'<div style="grid-column:span 2;font-size:12px;font-weight:800;color:#2b62c9;margin:6px 2px 0;">🧠 정의하지 않은 말 — <span style="font-weight:700;">AI 모드에서만 이해해요</span></div>'
+    +undefBtns
+    +'<button class="sim-btn" style="grid-column:span 2;background:#f4f7f6;border-color:var(--line);color:var(--ink-2);" onclick="handleUtterance(\'오늘 날씨 좋네\')"><span class="emo">❓</span>은행과 무관한 말 (예: "오늘 날씨 좋네")</button>';
 }
 const STEP_NAMES=['홈','받는사람','계좌입력','금액','확인','완료'];
 function renderNavMini(){ document.getElementById('navMini').innerHTML=STEP_NAMES.map((nm,i)=>'<button class="'+(i===curStep?'cur':'')+'" onclick="goStep('+i+')">'+(i+1)+'.'+nm+'</button>').join(''); }
 
 function matchReaction(text){ const t=text.replace(/\s/g,''); for(const r of REACTIONS)for(const kw of r.keywords)if(t.includes(kw.replace(/\s/g,'')))return r; return null; }
-function handleUtterance(text){
+
+/* ═══════════ 의도 파악: LLM(실제 이해) + 규칙(폴백) ═══════════
+   핵심: 정의하지 않은 혼잣말도 AI가 이해 → 규칙 기반 데모와의 결정적 차이.
+   LLM=두뇌(분류·안내 문구), 화면 배치(코치마크 위치)는 유형별 템플릿으로 결정(안정). */
+const REACTION_BY_ID={}; REACTIONS.forEach(r=>REACTION_BY_ID[r.id]=r);
+const TYPE_TO_ID={'정보부족':'info','혼란':'confuse','실수':'mistake','불안':'anxious','완료':'done',
+  'info':'info','confuse':'confuse','mistake':'mistake','anxious':'anxious','done':'done'};
+const ID_TO_KO={info:'정보부족',confuse:'혼란',mistake:'실수',anxious:'불안',warning:'불안(경고)',done:'완료'};
+
+/* ── AI 설정 (키는 이 브라우저 localStorage에만 저장, 서버 전송·저장소 하드코딩 없음) ── */
+const LS_AI_KEY='eodiboja_ai_key', LS_AI_PROV='eodiboja_ai_prov', LS_AI_MODE='eodiboja_ai_mode';
+const AI_PROVIDERS={
+  anthropic:{ url:'https://api.anthropic.com/v1/messages', model:'claude-haiku-4-5-20251001' },
+  openai:{ url:'https://api.openai.com/v1/chat/completions', model:'gpt-4o-mini' }
+};
+let intentMode='rule';   // 'llm' | 'rule'
+function aiKey(){ try{ return localStorage.getItem(LS_AI_KEY)||''; }catch(_){ return ''; } }
+function aiProvider(){ try{ return localStorage.getItem(LS_AI_PROV)||'anthropic'; }catch(_){ return 'anthropic'; } }
+function loadAiConfig(){
+  let m; try{ m=localStorage.getItem(LS_AI_MODE); }catch(_){}
+  intentMode = m || (aiKey()?'llm':'rule');     // 키가 있으면 기본 LLM, 없으면 규칙
+  syncAiUi();
+}
+function setIntentMode(m){
+  if(m==='llm' && !aiKey()){ toast('먼저 API 키를 저장해 주세요 🔑'); intentMode='llm'; syncAiUi(); return; }
+  intentMode=m; try{ localStorage.setItem(LS_AI_MODE,m); }catch(_){}
+  syncAiUi(); toast(m==='llm'?'AI 이해 모드로 전환했어요 🧠':'규칙 기반 모드로 전환했어요');
+}
+function onProviderChange(){ try{ localStorage.setItem(LS_AI_PROV, document.getElementById('aiProvider').value); }catch(_){} syncAiUi(); }
+function saveAiKey(){
+  const el=document.getElementById('aiKey'), k=(el.value||'').trim();
+  if(!k){ toast('API 키를 입력해 주세요'); return; }
+  try{ localStorage.setItem(LS_AI_KEY,k); localStorage.setItem(LS_AI_PROV, document.getElementById('aiProvider').value); }catch(_){}
+  el.value=''; setIntentMode('llm');
+}
+function clearAiKey(){ try{ localStorage.removeItem(LS_AI_KEY); }catch(_){} setIntentMode('rule'); toast('저장된 API 키를 삭제했어요'); }
+function syncAiUi(){
+  const hasKey=!!aiKey(), prov=aiProvider(), effective=(intentMode==='llm'&&hasKey)?'llm':'rule';
+  const seg=document.getElementById('segRule'), segL=document.getElementById('segLlm');
+  if(seg){ seg.classList.toggle('on',intentMode==='rule'); segL.classList.toggle('on',intentMode==='llm'); }
+  const cfg=document.getElementById('aiCfg'); if(cfg) cfg.setAttribute('data-mode',intentMode==='llm'?'llm':'rule');
+  const provSel=document.getElementById('aiProvider'); if(provSel) provSel.value=prov;
+  const badge=document.getElementById('aiModeBadge');
+  if(badge){ badge.textContent=(effective==='llm')?('AI · '+(prov==='openai'?'OpenAI':'Claude')):'규칙'; badge.classList.toggle('llm',effective==='llm'); }
+  const scl=document.getElementById('scModeLabel'); if(scl) scl.textContent=(effective==='llm')?'AI(LLM)':'규칙';
+  const stg=document.getElementById('stageCtrl'); if(stg) stg.classList.toggle('mode-rule',effective!=='llm');
+  const note=document.getElementById('aiNote');
+  if(note){
+    note.classList.remove('warn');
+    if(intentMode==='llm' && !hasKey){ note.classList.add('warn'); note.innerHTML='⚠️ <b>API 키가 없어 실제로는 규칙 기반으로 동작</b>합니다. 키를 저장하면 AI가 정의하지 않은 혼잣말도 이해해요.'; }
+    else if(intentMode==='llm'){ note.innerHTML='🧠 <b>AI 이해 모드</b> — '+(prov==='openai'?'OpenAI':'Claude')+'가 혼잣말을 실시간으로 이해합니다. 응답이 늦거나 실패하면 자동으로 규칙 기반으로 안내해요. <b>키는 이 브라우저에만 저장</b>됩니다.'; }
+    else{ note.innerHTML='규칙 기반: 정해둔 표현만 인식합니다. <b>AI(LLM)</b>로 바꾸면 정의하지 않은 혼잣말도 이해해요.'; }
+  }
+}
+
+/* ── LLM 안전 프롬프트 (안내만·거래 미실행·검증은 사용자 몫·사투리 이해) ── */
+const INTENT_SYSTEM_PROMPT=
+"너는 '어디보자'라는 고령자용 은행앱 음성 안내 도우미의 두뇌다. 어르신이 iM뱅크 '송금(이체)' 화면을 보며 하는 혼잣말을 듣고, 아래 5가지 유형 중 하나로 분류하고 짧고 따뜻한 안내 문구를 만든다.\n\n"+
+"[안전 규칙 — 반드시 지킬 것]\n"+
+"- 너는 '안내'만 한다. 실제 거래를 실행하거나 버튼을 대신 눌러주지 않는다.\n"+
+"- 거래가 맞다고 보증하지 않는다. 최종 판단은 사용자에게 맡긴다.\n"+
+"- 불안해하면 안심시키되, 받는 분·금액이 맞는지는 '직접 확인'하셔야 함을 분명히 한다.\n"+
+"- 계좌번호·비밀번호 등 개인정보를 지어내거나 대신 입력하라고 하지 않는다.\n\n"+
+"[유형과 예시 — 경상도 사투리도 이해할 것]\n"+
+"- 정보부족: 무엇을/어디에 넣을지 몰라 묻는 경우. 예) '계좌번호가 뭐였더라', '번호가 어데 있노', '우예 넣노'\n"+
+"- 혼란: 화면 자체가 이해 안 됨. 예) '이게 뭐여', '이기 뭐꼬', '당최 뭐가 뭔지', '어 이거 참 뭐라 해야 하나'\n"+
+"- 실수: 잘못 눌렀거나 지우고 싶음. 예) '아이고 잘못 눌렀네', '잘못 눌렀뿟다', '이거 우예 지우노'\n"+
+"- 불안: 맞는지 무섭고 걱정되거나 빨간 경고를 봄. 예) '이거 맞나 무섭네', '겁나서 몬하겠다', '와 빨갛노'\n"+
+"- 완료: 다 끝냈다고 안도/기뻐함. 예) '됐다 다 했어', '됐다 아이가', '보냈뿟다 이제'\n\n"+
+"[출력 형식] 반드시 아래 JSON 하나만 출력. 코드블록·설명 금지.\n"+
+'{"type":"정보부족|혼란|실수|불안|완료","guidance":"어르신께 드리는 1~2문장 안내. 존댓말, 쉽고 따뜻하게, 45자 이내","coach":"pulse|spotlight|arrow|soft|celebrate"}\n'+
+"coach 매핑: 정보부족=pulse, 혼란=spotlight, 실수=arrow, 불안=soft, 완료=celebrate.";
+
+function parseIntentJson(raw){
+  if(!raw) throw new Error('empty');
+  let s=String(raw).trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+  const a=s.indexOf('{'), b=s.lastIndexOf('}');
+  if(a<0||b<0) throw new Error('no-json');
+  return JSON.parse(s.slice(a,b+1));
+}
+async function classifyIntent(text){
+  const prov=aiProvider(), cfg=AI_PROVIDERS[prov], key=aiKey();
+  if(!key) throw new Error('no-key');
+  const stepName=STEP_NAMES[curStep]||'', user='현재 화면 단계: '+(curStep+1)+'단계('+stepName+')\n어르신 혼잣말: "'+text+'"\n\n유형과 안내를 JSON으로만 답하세요.';
+  const ctrl=new AbortController(), to=setTimeout(()=>ctrl.abort(),8000);
+  try{
+    let res, out;
+    if(prov==='openai'){
+      res=await fetch(cfg.url,{method:'POST',signal:ctrl.signal,
+        headers:{'content-type':'application/json','authorization':'Bearer '+key},
+        body:JSON.stringify({model:cfg.model,max_tokens:300,temperature:0.3,
+          response_format:{type:'json_object'},
+          messages:[{role:'system',content:INTENT_SYSTEM_PROMPT},{role:'user',content:user}]})});
+      if(!res.ok) throw new Error('http '+res.status);
+      out=(await res.json()).choices[0].message.content;
+    } else {
+      res=await fetch(cfg.url,{method:'POST',signal:ctrl.signal,
+        headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:cfg.model,max_tokens:300,system:INTENT_SYSTEM_PROMPT,
+          messages:[{role:'user',content:user}]})});
+      if(!res.ok) throw new Error('http '+res.status);
+      out=(await res.json()).content.map(b=>b.text||'').join('');
+    }
+    const obj=parseIntentJson(out);
+    const id=TYPE_TO_ID[String(obj.type||'').trim()];
+    if(!id) throw new Error('unknown-type');
+    return { id, guidance:(obj.guidance||'').trim(), rawType:obj.type };
+  } finally { clearTimeout(to); }
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+/* LLM 유형 + 안내문 → 실제 코치마크 반응(위치는 유형 템플릿, 문구는 AI). */
+function buildReaction(id, guidance, srcText){
+  let base=REACTION_BY_ID[id]||FALLBACK;
+  if(id==='anxious' && /빨간|빨강|붉|경고|일\s*년|1\s*년|이체내역/.test(srcText) && REACTION_BY_ID['warning']) base=REACTION_BY_ID['warning'];  // 불안 세부: 빨간 경고면 경고 안내
+  const text=guidance ? esc(guidance) : base.text;
+  return { id:base.id, step:base.step, coach:base.coach, spot:base.spot, tip:base.tip, text };
+}
+function verdictHTML(kind, id, extra){
+  const ko=ID_TO_KO[id]||'안내';
+  if(kind==='ai') return '<div class="verdict"><span class="chip">🧠 AI 판단</span> 유형 <b>'+ko+'</b>'+(extra?' · '+extra:'')+'</div>';
+  if(kind==='fallback') return '<div class="verdict fallback"><span class="chip">⚠️ 규칙 폴백</span> AI 연결이 어려워 규칙으로 안내해요'+(id?' · <b>'+ko+'</b>':'')+'</div>';
+  return '<div class="verdict rule"><span class="chip">📋 규칙 매칭</span> 유형 <b>'+ko+'</b></div>';
+}
+
+let utterSeq=0;   // 늦게 도착한 LLM 응답이 최신 발화를 덮어쓰지 않도록
+async function handleUtterance(text){
   if(!assistantOn){   // 어디보자 꺼짐: 아무 안내도 없는 '그냥 은행 앱'
-    document.getElementById('heard').innerHTML='🔇 <b>어디보자가 꺼져 있어요</b> — 혼잣말을 해도 아무 안내가 없어요.<br><span class="quote">“'+text+'”</span>';
+    document.getElementById('heard').innerHTML='🔇 <b>어디보자가 꺼져 있어요</b> — 혼잣말을 해도 아무 안내가 없어요.<br><span class="quote">“'+esc(text)+'”</span>';
     clearGuide();
     return;
   }
-  document.getElementById('heard').innerHTML='👂 <b>이렇게 들었어요</b><br><span class="quote">“'+text+'”</span>';
-  const r=matchReaction(text), reaction=r||FALLBACK;
+  const seq=++utterSeq, heard=document.getElementById('heard');
+  const useLlm=(intentMode==='llm' && !!aiKey());
+  heard.innerHTML='👂 <b>이렇게 들었어요</b><br><span class="quote">“'+esc(text)+'”</span>'
+    +(useLlm?'<div class="verdict"><span class="thinking"><i></i><i></i><i></i></span> 우디가 이해하는 중…</div>':'');
+
+  let reaction, verdict;
+  if(useLlm){
+    try{
+      const ai=await classifyIntent(text);
+      if(seq!==utterSeq) return;   // 그 사이 새 발화가 들어옴 → 폐기
+      reaction=buildReaction(ai.id, ai.guidance, text);
+      verdict=verdictHTML('ai', reaction.id);
+    }catch(err){
+      if(seq!==utterSeq) return;
+      const r=matchReaction(text); reaction=r||FALLBACK;
+      verdict=verdictHTML('fallback', r?reaction.id:null);
+    }
+  } else {
+    const r=matchReaction(text); reaction=r||FALLBACK;
+    verdict = r ? verdictHTML('rule', reaction.id) : '';
+  }
+  heard.innerHTML='👂 <b>이렇게 들었어요</b><br><span class="quote">“'+esc(text)+'”</span>'+(verdict||'');
+
   if(reaction.step!==null && reaction.step!==undefined && reaction.step!==curStep){
     goStep(reaction.step);
     setTimeout(()=>showGuide(reaction), 360);
@@ -1028,6 +1237,7 @@ function tick(){ const d=new Date(); let h=d.getHours(); const m=String(d.getMin
 
 /* ═══════════ 초기화 ═══════════ */
 paintIcons(); renderHeader(); renderSim(); renderNavMini(); refreshAmt(); tick(); setInterval(tick,15000);
+loadAiConfig();                       // AI 이해 모드(LLM/규칙) 상태 복원
 renderIndependence(loadHistory());   // 완료 화면 자립 곡선 초기 렌더
 
 /* ═══════════ 앱 진입 시퀀스 (스플래시 → 지문 인증 → 홈) ═══════════ */
