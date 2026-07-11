@@ -353,11 +353,15 @@
   .stage-ctrl button:active{transform:scale(.97);}
   .stage-ctrl .sc-scenario{background:var(--im-mint-bg);border:1.5px solid var(--im-mint-soft);color:var(--im-green-d);margin-bottom:8px;}
   .stage-ctrl .sc-reset{background:#f2f5f4;border:1px solid #e3e8e6;color:#5b6167;}
-  @media(max-width:900px){
-    .stage-ctrl{left:50%;top:6px;transform:translateX(-50%);width:auto;display:flex;align-items:center;gap:10px;padding:7px 12px;flex-wrap:wrap;justify-content:center;}
-    .stage-ctrl .sc-title,.stage-ctrl .sc-hint{display:none;}
-    .stage-ctrl button{width:auto;padding:8px 11px;}
-  }
+  /* 좁은 화면(앱 옆 여백이 부족)에선 좌측 패널을 숨겨 앱 화면을 절대 안 가림.
+     → 이때 발표 컨트롤은 '혼잣말 시나리오' 시트 안에서 접근(온디맨드). */
+  @media(max-width:900px){ .stage-ctrl{display:none;} }
+  /* 시트 안 발표 컨트롤(좁은 화면 대비) */
+  .sheet-ctrl{display:flex;gap:8px;margin:2px 0 4px;}
+  .assist-toggle-btn{flex:1;border:none;border-radius:12px;padding:12px;font-size:13.5px;font-weight:800;cursor:pointer;background:var(--im-green);color:#fff;transition:background .2s;}
+  .assist-toggle-btn.off{background:#e5484d;}
+  .sheet-reset{flex:0 0 auto;border:1px solid #e3e8e6;background:#f2f5f4;color:#5b6167;border-radius:12px;padding:12px 14px;font-size:12.5px;font-weight:800;cursor:pointer;}
+  .assist-toggle-btn:active,.sheet-reset:active{transform:scale(.97);}
 
   /* 어디보자 OFF: 우디·마이크 배지 비활성(숨김) */
   .device.assist-off .fab,.device.assist-off .mic-badge{opacity:0;pointer-events:none;transition:opacity .3s;}
@@ -578,6 +582,10 @@
     <div class="grip"></div>
     <h3><span data-ic="woodi-sm"></span> 어디보자 · 혼잣말 체험</h3>
     <p class="desc">마이크가 없어도, 아래 혼잣말을 눌러 우디의 안내를 체험할 수 있어요. (실제 발표 땐 마이크로 자동 인식)</p>
+    <div class="sheet-ctrl">
+      <button class="assist-toggle-btn" id="assistToggleBtn" onclick="toggleAssistant()">어디보자 <b>켜짐</b> · 눌러서 끄기</button>
+      <button class="sheet-reset" onclick="resetIndependence()">↺ 초기화</button>
+    </div>
     <div class="sec">🎤 실제 음성으로 말하기</div>
     <button class="mic-btn" id="micBtn" onclick="toggleMic()"><span data-ic="mic" id="micBtnIcon"></span> <span id="micBtnLabel">음성으로 말하기</span></button>
     <div class="mic-hint" id="micHint">브라우저 마이크 권한을 허용하면 혼잣말을 실제로 인식합니다. (Chrome 권장)</div>
@@ -688,6 +696,8 @@ function setAssistant(on){
   document.getElementById('assistState').textContent = on ? 'ON' : 'OFF';
   document.getElementById('assistHint').textContent = on ? '켜짐 — 우디가 옆에서 안내해요' : '꺼짐 — 도움 없이 혼자 (그냥 은행 앱)';
   document.getElementById('micText').textContent = on ? '우디가 듣고 있어요 · 혼잣말도 괜찮아요' : '';
+  const tb=document.getElementById('assistToggleBtn');   // 시트 안 토글도 동기화
+  if(tb){ tb.classList.toggle('off',!on); tb.innerHTML='어디보자 <b>'+(on?'켜짐':'꺼짐')+'</b> · 눌러서 '+(on?'끄기':'켜기'); }
   if(!on){ clearGuide(); if(listening) stopMic(); }   // 끄면 진행 중 안내·마이크 정리
 }
 function toggleAssistant(){ setAssistant(!assistantOn); }
