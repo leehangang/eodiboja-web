@@ -23,11 +23,11 @@ iM뱅크 송금 6단계(홈 → 받는사람 → 계좌입력 → 금액 → 확
 - 음성 출력: SpeechSynthesis (`ko-KR`)
 - 색상: iM 공식 컬러 시스템 (iM Mint `#00C7A9`, iM Lime `#E2F15E` 등)
 - 캐릭터/심볼: IM FRIENDS 우디, iM 심볼
-- 서체: **iM혜민체** — "어디보자" 에이전트 오버레이(말풍선·이름·안내 문구)에만 적용. 서브셋 woff2 임베드, 폴백 `'Noto Sans KR', sans-serif`. (iM뱅크 앱 목업은 실제 앱처럼 시스템 고딕 유지)
+- 서체: **Pretendard** — 데모 전체(iM뱅크 앱 목업 + 어디보자 오버레이) 공통 UI 서체. 실제 iM뱅크 앱 화면의 고딕과 가장 근접하며 모든 기기에서 동일하게 렌더. 서브셋 woff2 base64 임베드, 폴백 `'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR', sans-serif`.
 
 ## 서체 라이선스
-**iM혜민체 © iM뱅크(DGB대구은행).** 무료 배포 서체로 상업적/GUI 사용이 허용됩니다.
-출처: imbank.co.kr/cms/imhyemin
+**Pretendard** — SIL Open Font License 1.1 (무료·상업적 사용 허용). © Kil Hyeongwon. https://github.com/orioncactus/pretendard
+> 참고: iM 공식 서체 **iM혜민체**도 검토했으나, 실제 iM뱅크 앱 UI가 쓰는 서체와 인상이 달라(디스플레이/마케팅용 서체) 가독성·일관성을 위해 앱 화면 서체(Pretendard 계열)로 통일함.
 
 ## 크레딧 / 저작권
 iM 로고·심볼·IM FRIENDS 캐릭터(우디)는 iM금융그룹의 자산이며, 본 저장소는 해당 공모전 제출·시연 목적의 프로토타입입니다.
