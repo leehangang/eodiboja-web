@@ -21,6 +21,7 @@
     --im-mint-bg:#e3f5f0; --im-mint-soft:#d1f0e8; --btn-disabled:#a6e6d8;
     --warn-red:#fd3130; --badge-blue:#7DB5FF; --gray-btn:#eef0f3;
     --card:#ffffff; --ink:#1a1d21; --ink-2:#565c62; --ink-3:#9aa0a6; --line:#edeff1; --spot:#ffd23f;
+    --coach-warm:#f4a96a; /* 불안 유형 코치마크 테두리: 경고 아닌 '따뜻한' 톤 */
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;height:100%;}
@@ -208,9 +209,33 @@
   /* ══ 어디보자 오버레이 ══ */
   .dim{position:absolute;inset:0;z-index:40;display:none;background:transparent;}
   .dim.on{display:block;}
-  .spotlight{position:absolute;border-radius:16px;z-index:41;pointer-events:none;box-shadow:0 0 0 9999px rgba(6,18,14,.68);border:3px solid var(--spot);transition:all .34s cubic-bezier(.22,1,.36,1);display:none;}
-  .spotlight.on{display:block;animation:pulse 1.7s ease-in-out infinite;}
-  @keyframes pulse{0%,100%{box-shadow:0 0 0 9999px rgba(6,18,14,.68),0 0 0 3px rgba(255,210,63,.9);}50%{box-shadow:0 0 0 9999px rgba(6,18,14,.68),0 0 0 11px rgba(255,210,63,0);}}
+  /* ── 코치마크: ② 혼란 → 스포트라이트(화면 어둡게 + 대상만, iM 민트 테두리) ── */
+  .spotlight{position:absolute;border-radius:16px;z-index:41;pointer-events:none;box-shadow:0 0 0 9999px rgba(6,18,14,.66);border:3px solid var(--im-mint);transition:all .4s cubic-bezier(.22,1,.36,1);display:none;}
+  .spotlight.on{display:block;animation:spotpulse 2.2s ease-in-out infinite;}
+  @keyframes spotpulse{0%,100%{box-shadow:0 0 0 9999px rgba(6,18,14,.66),0 0 0 3px rgba(0,199,169,.9);}50%{box-shadow:0 0 0 9999px rgba(6,18,14,.66),0 0 0 12px rgba(0,199,169,0);}}
+  /* ── 코치마크 공통 박스: ① 정보부족 → 펄스/글로우, ④ 불안 → 부드러운 테두리 (둘 다 화면 안 어둡게) ── */
+  .coach-box{position:absolute;z-index:41;border-radius:16px;display:none;pointer-events:none;box-sizing:border-box;transition:all .4s cubic-bezier(.22,1,.36,1);}
+  .coach-box.on{display:block;}
+  .coach-box.pulse{border:2.5px solid var(--im-mint);animation:coachpulse 2.6s ease-in-out infinite;}
+  @keyframes coachpulse{0%,100%{transform:scale(1);box-shadow:0 0 16px 3px rgba(0,199,169,.22),0 0 0 0 rgba(0,199,169,.35);}50%{transform:scale(1.03);box-shadow:0 0 30px 9px rgba(0,199,169,.5),0 0 0 5px rgba(0,199,169,.12);}}
+  .coach-box.soft{border:3px solid var(--coach-warm);background:rgba(244,169,106,.06);animation:coachsoft 3.2s ease-in-out infinite;}
+  @keyframes coachsoft{0%,100%{box-shadow:0 0 18px 4px rgba(244,169,106,.22);}50%{box-shadow:0 0 30px 10px rgba(244,169,106,.42);}}
+  /* ── 코치마크: ③ 실수 → 화살표 + 짧은 툴팁 ── */
+  .coach-arrow{position:absolute;z-index:58;display:none;pointer-events:none;filter:drop-shadow(0 8px 18px rgba(0,0,0,.18));}
+  .coach-arrow.on{display:block;animation:coachfloat 1.9s ease-in-out infinite;}
+  .coach-arrow .ca-tip{background:var(--im-green);color:#fff;font-weight:800;font-size:14px;padding:11px 15px;border-radius:14px;white-space:nowrap;letter-spacing:-.3px;}
+  .coach-arrow .ca-point{position:absolute;bottom:-8px;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:10px solid var(--im-green);}
+  .coach-arrow.below .ca-point{bottom:auto;top:-10px;border-top:none;border-bottom:10px solid var(--im-green);}
+  @keyframes coachfloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  /* ── 코치마크: ⑤ 완료 → 컨페티 축하 ── */
+  .confetti{position:absolute;inset:0;z-index:62;pointer-events:none;overflow:hidden;display:none;}
+  .confetti.on{display:block;}
+  .confetti i{position:absolute;top:-16px;width:9px;height:15px;border-radius:2px;animation:confall linear forwards;}
+  @keyframes confall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(880px) rotate(600deg);opacity:.85}}
+  @media(prefers-reduced-motion:reduce){
+    .spotlight.on,.coach-box.pulse,.coach-box.soft,.coach-arrow.on,.confetti i{animation:none!important;}
+    .coach-box.pulse{box-shadow:0 0 18px 4px rgba(0,199,169,.4);}
+  }
 
   .bubble{position:absolute;left:12px;right:12px;bottom:16px;z-index:60;background:#fff;border-radius:20px;padding:16px;box-shadow:0 12px 34px rgba(0,0,0,.3);border:2px solid var(--im-green);transform:translateY(150%);opacity:0;transition:all .42s cubic-bezier(.22,1,.36,1);}
   .bubble.on{transform:translateY(0);opacity:1;}
@@ -458,6 +483,9 @@
   <!-- 어디보자 오버레이 -->
   <div class="dim" id="dim" onclick="clearGuide()"></div>
   <div class="spotlight" id="spotlight"></div>
+  <div class="coach-box" id="coachBox"></div>
+  <div class="coach-arrow" id="coachArrow"><div class="ca-tip"></div><div class="ca-point"></div></div>
+  <div class="confetti" id="confetti"></div>
   <div class="mic-badge" id="micBadge" onclick="openSheet()"><span class="mdot"></span><span id="micText">우디가 듣고 있어요 · 혼잣말도 괜찮아요</span><span class="mb-more">›</span></div>
   <button class="fab" id="fab" onclick="toggleMic()"><span class="ring"></span><span class="fab-face" data-ic="woodi"></span><span class="fab-ear" data-ic="ear"></span></button>
   <div class="bubble" id="bubble">
@@ -648,21 +676,24 @@ function addAmt(v){ amount+=v; if(amount>ACCOUNT.balance)amount=ACCOUNT.balance;
 function clearAmt(){ amount=0; refreshAmt(); }
 
 /* ═══════════ 혼잣말 → 반응 (배열/객체, 확장 쉬움) ═══════════ */
+/* 각 유형의 coach: 감정 상태에 맞춘 코치마크 형태
+   pulse=은은한 글로우(정보부족), spotlight=화면 어둡게+대상(혼란),
+   arrow=화살표+짧은툴팁(실수), soft=따뜻한 부드러운 테두리·안 어둡게(불안/경고), celebrate=축하(완료) */
 const REACTIONS = [
   { id:'info', label:'계좌번호가 뭐였더라', emoji:'🤔', keywords:['계좌번호','뭐였더라','번호','계좌가','어디다'],
-    step:2, spot:'#acct-field', text:'손자분 <span class="hl">계좌번호</span>는 문자로 받으신 걸 보시면 돼요. 이 칸을 눌러 <span class="hl">천천히</span> 입력해 보셔요.' },
+    step:2, coach:'pulse', spot:'#acct-field', text:'손자분 <span class="hl">계좌번호</span>는 문자로 받으신 걸 보시면 돼요. 이 칸을 눌러 <span class="hl">천천히</span> 입력해 보셔요.' },
   { id:'confuse', label:'이게 뭐여, 몰것다', emoji:'😵', keywords:['이게 뭐여','뭐여','몰것다','모르겠','어떻게','뭐지','어렵','헷갈'],
-    step:3, spot:'#amt-back', text:'지금 보시는 건 <span class="hl">숫자 입력판</span>이에요. 5만원은 <span class="hl">5, 0, 0, 0, 0</span> 순서로 눌러주시면 돼요.' },
+    step:3, coach:'spotlight', spot:'#screen-amount .keypad', text:'지금 보시는 건 <span class="hl">숫자 입력판</span>이에요. 5만원은 <span class="hl">5, 0, 0, 0, 0</span> 순서로 눌러주시면 돼요.' },
   { id:'mistake', label:'아이고 잘못 눌렀네', emoji:'😣', keywords:['잘못','실수','어떡','지우','틀렸','다시','오타'],
-    step:null, spot:'#amt-back', text:'괜찮아요. 오른쪽 아래 <span class="hl">← 버튼</span>을 누르시면 하나씩 지워져요. <span class="hl">천천히</span> 하셔요.' },
+    step:null, coach:'arrow', spot:'#amt-back', tip:'여기를 누르면 지워져요', text:'괜찮아요. 오른쪽 아래 <span class="hl">← 버튼</span>을 누르시면 하나씩 지워져요. <span class="hl">천천히</span> 하셔요.' },
   { id:'anxious', label:'이거 맞나… 무섭네', emoji:'😟', keywords:['맞나','무섭','잘못되','괜찮은','불안','걱정','사기','겁나'],
-    step:4, spot:'.cf-title,.detail', text:'화면에 <span class="hl">받는 분과 금액</span>이 표시돼 있어요. 그 정보가 맞으면 이체하기를 누르시면 돼요. <span class="hl">천천히 확인</span>해 보셔요.' },
+    step:4, coach:'soft', spot:'.cf-title,.detail', text:'화면에 <span class="hl">받는 분과 금액</span>이 표시돼 있어요. 그 정보가 맞으면 이체하기를 누르시면 돼요. <span class="hl">천천히 확인</span>해 보셔요.' },
   { id:'warning', label:'빨간 글씨가 떴어', emoji:'🔴', keywords:['빨간','빨강','붉은','경고','1년','일년','이체내역','없는 계좌','없는계좌'],
-    step:4, spot:'#warn-line', text:'그 빨간 글씨는 <span class="hl">\'이 계좌로 처음 보내신다\'</span>는 안내예요. 잘못된 게 아니에요. 받는 분과 금액이 맞으면 <span class="hl">안심하고</span> 진행하셔도 돼요.' },
+    step:4, coach:'soft', spot:'#warn-line', text:'그 빨간 글씨는 <span class="hl">\'이 계좌로 처음 보내신다\'</span>는 안내예요. 잘못된 게 아니에요. 받는 분과 금액이 맞으면 <span class="hl">안심하고</span> 진행하셔도 돼요.' },
   { id:'done', label:'됐다, 다 했어!', emoji:'🎉', keywords:['됐다','완료','다 했','다했','보냈','끝났','성공'],
-    step:null, spot:null, text:'잘하셨어요! 오늘은 <span class="hl">세 번</span> 도와드렸는데, 다음번엔 <span class="hl">한 번만</span> 여쭤보셔도 될 것 같아요.' },
+    step:null, coach:'celebrate', spot:null, text:'잘하셨어요! 오늘은 <span class="hl">세 번</span> 도와드렸는데, 다음번엔 <span class="hl">한 번만</span> 여쭤보셔도 될 것 같아요.' },
 ];
-const FALLBACK = { text:'어디를 도와드릴까요? <span class="hl">\'이게 뭐여\'</span>, <span class="hl">\'계좌번호가 뭐였더라\'</span>처럼 편하게 말씀하셔도 돼요.', step:null, spot:null };
+const FALLBACK = { text:'어디를 도와드릴까요? <span class="hl">\'이게 뭐여\'</span>, <span class="hl">\'계좌번호가 뭐였더라\'</span>처럼 편하게 말씀하셔도 돼요.', step:null, coach:null, spot:null };
 
 function renderSim(){
   document.getElementById('simGrid').innerHTML=
@@ -678,35 +709,100 @@ function handleUtterance(text){
   const r=matchReaction(text), reaction=r||FALLBACK;
   if(reaction.step!==null && reaction.step!==undefined && reaction.step!==curStep){
     goStep(reaction.step);
-    setTimeout(()=>showGuide(reaction.text, reaction.spot), 360);
-  } else showGuide(reaction.text, reaction.spot);
+    setTimeout(()=>showGuide(reaction), 360);
+  } else showGuide(reaction);
 }
 
-/* ═══════════ 안내: 말풍선 + 스포트라이트 + TTS ═══════════ */
+/* ═══════════ 안내: 말풍선 + 상황별 코치마크 + TTS ═══════════ */
 let guideTimer=null;
-function showGuide(html, spotSel){
+function showGuide(reaction){
   clearTimeout(guideTimer);
-  document.getElementById('bubbleText').innerHTML=html;
+  document.getElementById('bubbleText').innerHTML=reaction.text;
   document.getElementById('bubble').classList.add('on');
-  if(spotSel) setTimeout(()=>setSpotlight(spotSel), 60); else clearSpotlight();
-  speak(stripTags(html));
+  setTimeout(()=>applyCoach(reaction), 70);   // 화면 전환/레이아웃 정착 후
+  speak(stripTags(reaction.text));
   guideTimer=setTimeout(clearGuide, 12000);
 }
-function clearGuide(){ clearTimeout(guideTimer); document.getElementById('bubble').classList.remove('on'); clearSpotlight(); stopSpeak(); }
+function clearGuide(){ clearTimeout(guideTimer); document.getElementById('bubble').classList.remove('on'); clearCoach(); stopSpeak(); }
 function stripTags(h){ const d=document.createElement('div'); d.innerHTML=h; return d.textContent; }
-function setSpotlight(sel){
-  const stage=document.getElementById('device'), dim=document.getElementById('dim'), spot=document.getElementById('spotlight');
+
+/* ── 감정 상태 → 코치마크 형태 자동 선택 ── */
+function applyCoach(reaction){
+  clearCoach();
+  switch(reaction.coach){
+    case 'pulse':      showPulse(reaction.spot); break;       // ① 정보부족: 은은한 글로우
+    case 'spotlight':  showSpotlight(reaction.spot); break;   // ② 혼란: 화면 어둡게+대상
+    case 'arrow':      showArrow(reaction.spot, reaction.tip); break; // ③ 실수: 화살표+툴팁
+    case 'soft':       showSoftBorder(reaction.spot); break;  // ④ 불안/경고: 안 어둡게, 따뜻한 테두리
+    case 'celebrate':  showCelebrate(); break;                // ⑤ 완료: 축하 컨페티
+    default: clearCoach();
+  }
+}
+function clearCoach(){
+  document.getElementById('dim').classList.remove('on');
+  document.getElementById('spotlight').classList.remove('on');
+  const cb=document.getElementById('coachBox'); cb.classList.remove('on','pulse','soft');
+  document.getElementById('coachArrow').classList.remove('on','below');
+  const cf=document.getElementById('confetti'); cf.classList.remove('on'); cf.innerHTML='';
+}
+/* 대상 요소들을 감싸는 사각형(디바이스 기준 좌표) 계산 */
+function coachRect(sel, pad){
+  if(!sel) return null;
+  const dev=document.getElementById('device').getBoundingClientRect();
   const els=[]; sel.split(',').forEach(s=>{const el=document.querySelector(s.trim()); if(el&&el.offsetParent!==null)els.push(el);});
-  if(!els.length){ clearSpotlight(); return; }
-  const sr=stage.getBoundingClientRect();
+  if(!els.length) return null;
   let x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;
   els.forEach(el=>{const r=el.getBoundingClientRect(); x1=Math.min(x1,r.left);y1=Math.min(y1,r.top);x2=Math.max(x2,r.right);y2=Math.max(y2,r.bottom);});
-  const pad=7;
-  spot.style.left=(x1-sr.left-pad)+'px'; spot.style.top=(y1-sr.top-pad)+'px';
-  spot.style.width=(x2-x1+pad*2)+'px'; spot.style.height=(y2-y1+pad*2)+'px';
+  return {left:x1-dev.left-pad, top:y1-dev.top-pad, width:x2-x1+pad*2, height:y2-y1+pad*2, cx:(x1+x2)/2-dev.left, devW:dev.width};
+}
+/* ② 혼란 → 스포트라이트 (화면 어둡게 + 대상만) */
+function showSpotlight(sel){
+  const r=coachRect(sel,7), dim=document.getElementById('dim'), spot=document.getElementById('spotlight');
+  if(!r){ clearCoach(); return; }
+  spot.style.left=r.left+'px'; spot.style.top=r.top+'px'; spot.style.width=r.width+'px'; spot.style.height=r.height+'px';
   dim.classList.add('on'); spot.classList.add('on');
 }
-function clearSpotlight(){ document.getElementById('dim').classList.remove('on'); document.getElementById('spotlight').classList.remove('on'); }
+/* 공통 박스(펄스/부드러운 테두리) 배치 */
+function placeBox(sel, cls, pad){
+  const r=coachRect(sel,pad), cb=document.getElementById('coachBox');
+  if(!r){ cb.classList.remove('on','pulse','soft'); return; }
+  cb.style.left=r.left+'px'; cb.style.top=r.top+'px'; cb.style.width=r.width+'px'; cb.style.height=r.height+'px';
+  cb.classList.remove('pulse','soft'); cb.classList.add('on', cls);
+}
+/* ① 정보부족 → 은은한 펄스/글로우 (화면 안 어둡게) */
+function showPulse(sel){ placeBox(sel, 'pulse', 6); }
+/* ④ 불안/경고 → 따뜻한 부드러운 테두리 (화면 안 어둡게) */
+function showSoftBorder(sel){ placeBox(sel, 'soft', 9); }
+/* ③ 실수 → 화살표 + 짧은 툴팁 */
+function showArrow(sel, tip){
+  const r=coachRect(sel,0); const arrow=document.getElementById('coachArrow');
+  if(!r){ arrow.classList.remove('on','below'); return; }
+  arrow.querySelector('.ca-tip').textContent = tip || '여기예요';
+  arrow.classList.add('on'); arrow.classList.remove('below');
+  const tw=arrow.offsetWidth, th=arrow.offsetHeight;
+  let left=Math.max(8, Math.min(r.cx - tw/2, r.devW - tw - 8));
+  let top=r.top - th - 12, below=false;
+  if(top<8){ top=r.top + r.height + 12; below=true; arrow.classList.add('below'); }
+  arrow.style.left=left+'px'; arrow.style.top=top+'px';
+  arrow.querySelector('.ca-point').style.left=Math.max(10, Math.min(r.cx-left-9, tw-28))+'px';
+}
+/* ⑤ 완료 → 축하 컨페티 (코치마크 없이) */
+function showCelebrate(){
+  // 동작 줄이기 선호 시: 컨페티(모션) 생략 — 완료 체크 + 축하 말풍선으로 충분
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cf=document.getElementById('confetti'); cf.innerHTML=''; cf.classList.add('on');
+  const cols=['#00C7A9','#E2F15E','#7DB5FF','#D1B5FF','#22d3a8'];
+  for(let i=0;i<20;i++){
+    const p=document.createElement('i');
+    p.style.left=(5+Math.random()*90)+'%';
+    p.style.background=cols[i%cols.length];
+    p.style.animationDuration=(1.6+Math.random()*1.2)+'s';
+    p.style.animationDelay=(Math.random()*0.35)+'s';
+    p.style.transform='rotate('+(Math.random()*180)+'deg)';
+    cf.appendChild(p);
+  }
+  setTimeout(()=>{ cf.classList.remove('on'); cf.innerHTML=''; }, 3000);
+}
 
 let koVoice=null;
 function pickVoice(){ const vs=speechSynthesis.getVoices(); koVoice=vs.find(v=>v.lang==='ko-KR')||vs.find(v=>v.lang&&v.lang.startsWith('ko'))||null; }
