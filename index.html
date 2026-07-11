@@ -111,6 +111,14 @@
   .badge.blue{background:#e9f2ff;color:#4f8ff0;}
   .badge.gray{background:#eef1f3;color:#868d94;}
   .btn-transfer{background:var(--gray-btn);color:#2f3941;border:none;border-radius:12px;padding:12px 22px;font-size:16px;font-weight:800;cursor:pointer;flex:0 0 auto;}
+  /* 홈 계좌 액션: 실제 '쉬운 홈'처럼 [거래내역][이체] 나란히 */
+  .acct-actions{display:flex;gap:9px;margin-top:16px;}
+  .acct-actions button{flex:1;border-radius:13px;padding:14px;font-size:16px;font-weight:800;cursor:pointer;transition:transform .08s,filter .1s,background .1s;}
+  .acct-actions button:active{transform:scale(.97);}
+  .btn-hist{background:#fff;border:1.5px solid #d9dfdb;color:#2f3941;}
+  .btn-hist:active{background:#f2f5f4;}
+  .btn-go{background:var(--im-green);border:none;color:#fff;}
+  .btn-go:active{filter:brightness(.94);}
   .divider{height:1px;background:var(--line);margin:18px 0;}
   .acct-foot{display:flex;justify-content:center;font-size:15px;color:var(--ink-2);font-weight:600;}
   .acct-foot span{padding:0 22px;position:relative;cursor:pointer;}
@@ -265,6 +273,9 @@
   .mic-badge .mdot{width:8px;height:8px;border-radius:50%;background:#3ddc84;animation:micdot 1.4s infinite;}
   @keyframes micdot{0%{box-shadow:0 0 0 0 rgba(61,220,132,.6);}70%{box-shadow:0 0 0 7px rgba(61,220,132,0);}100%{box-shadow:0 0 0 0 rgba(61,220,132,0);}}
   .mic-badge.hot .mdot{background:#ff6b6b;animation:none;}
+  /* 토스트: 앱답지 않은 기본 alert 대체 */
+  .toast{position:absolute;left:50%;bottom:165px;transform:translateX(-50%) translateY(12px);z-index:65;background:rgba(24,28,31,.9);color:#fff;font-size:13px;font-weight:700;padding:11px 17px;border-radius:20px;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;white-space:nowrap;box-shadow:0 6px 20px rgba(0,0,0,.25);backdrop-filter:blur(4px);}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
 
   /* 데모 시나리오 런처 & 바텀시트 */
   .demo-chip{position:absolute;left:14px;bottom:34px;z-index:53;background:rgba(255,255,255,.92);color:var(--im-green-d);border:1.5px solid var(--im-mint-soft);border-radius:20px;padding:8px 13px;font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.12);backdrop-filter:blur(4px);}
@@ -349,7 +360,7 @@
     <!-- 홈 -->
     <div class="screen active" id="screen-home">
       <div class="scroll pad-fab">
-        <div class="banner" onclick="alert('데모 화면입니다')">
+        <div class="banner" onclick="toast('데모 화면이에요 🙂')">
           <span class="ill"></span>
           <span class="txt">모임통장에 매월 2만원<b>자동이체하고 쿠폰 받아요</b></span>
           <span data-ic="chevR" style="color:var(--ink-3)"></span>
@@ -368,7 +379,10 @@
               <div class="nm"><span class="nm-t">저축예금(iM스마트통장)(9071)</span> <span class="badge blue">한도</span></div>
               <div class="amt" id="home-balance">1,250,000원</div>
             </div>
-            <button class="btn-transfer" onclick="goStep(1)">이체</button>
+          </div>
+          <div class="acct-actions">
+            <button class="btn-hist">거래내역</button>
+            <button class="btn-go" onclick="goStep(1)">이체</button>
           </div>
           <div class="acct-row" style="margin-top:20px;">
             <div class="card-mini"></div>
@@ -489,6 +503,7 @@
   <div class="coach-box" id="coachBox"></div>
   <div class="coach-arrow" id="coachArrow"><div class="ca-tip"></div><div class="ca-point"></div></div>
   <div class="confetti" id="confetti"></div>
+  <div class="toast" id="toast"></div>
   <div class="mic-badge" id="micBadge" onclick="openSheet()"><span class="mdot"></span><span id="micText">우디가 듣고 있어요 · 혼잣말도 괜찮아요</span><span class="mb-more">›</span></div>
   <button class="fab" id="fab" onclick="toggleMic()"><span class="ring"></span><span class="fab-face" data-ic="woodi"></span><span class="fab-ear" data-ic="ear"></span></button>
   <div class="bubble" id="bubble">
@@ -650,6 +665,7 @@ function commitTransfer(){
   document.getElementById('to-name-d').textContent=RECIPIENT.name;
   document.getElementById('done-sub').textContent='남은 잔액 '+fmt(ACCOUNT.balance)+'원';
   document.getElementById('home-balance').textContent=fmt(ACCOUNT.balance)+'원';
+  document.getElementById('withdrawable').textContent=fmt(ACCOUNT.balance)+'원'; // P1: 출금가능금액도 잔액과 동기화
 }
 
 /* 계좌번호 입력 */
@@ -870,6 +886,13 @@ function setMic(on){
   mb.classList.toggle('stop',on);
   document.getElementById('micBtnLabel').textContent=on?'듣는 중… (멈추기)':'음성으로 말하기';
   document.getElementById('micBtnIcon').innerHTML= on?ICONS.stop:ICONS.mic;
+}
+
+/* ═══════════ 토스트 (기본 alert 대체) ═══════════ */
+let toastTimer=null;
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('on'), 1800);
 }
 
 /* ═══════════ 데모 바텀시트 ═══════════ */
