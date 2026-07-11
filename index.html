@@ -336,9 +336,63 @@
   .bio .bio-skip{position:absolute;bottom:40px;font-size:12px;color:var(--ink-3);font-weight:600;}
   @keyframes fppulse{0%{transform:scale(.8);opacity:.5}100%{transform:scale(1.25);opacity:0}}
   @media(prefers-reduced-motion:reduce){.splash .sp-bar::after,.bio .fp-ring,.splash .logo-wrap{animation:none!important;}}
+
+  /* ══ 발표 컨트롤 패널 (앱 밖·화면 안 가림) ══ */
+  .stage-ctrl{position:fixed;left:22px;top:50%;transform:translateY(-50%);z-index:300;width:176px;background:rgba(255,255,255,.97);border-radius:18px;padding:16px 15px;box-shadow:0 14px 38px rgba(0,0,0,.32);font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;}
+  .stage-ctrl .sc-title{font-size:13px;font-weight:800;color:#2f3941;margin-bottom:13px;}
+  .stage-ctrl .sc-row{display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none;}
+  .stage-ctrl .sc-label{font-size:15px;font-weight:800;color:#1a1d21;}
+  .stage-ctrl .sw{width:46px;height:26px;border-radius:15px;background:var(--im-green);position:relative;transition:background .25s;flex:0 0 auto;}
+  .stage-ctrl .sw .knob{position:absolute;top:3px;left:23px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .25s;box-shadow:0 2px 5px rgba(0,0,0,.25);}
+  .stage-ctrl.off .sw{background:#c7ccd0;}
+  .stage-ctrl.off .sw .knob{left:3px;}
+  .stage-ctrl .sc-state{margin-left:auto;font-size:13px;font-weight:800;color:var(--im-green-d);}
+  .stage-ctrl.off .sc-state{color:#98a0a7;}
+  .stage-ctrl .sc-hint{font-size:11px;color:var(--ink-2);margin:9px 0 13px;line-height:1.45;}
+  .stage-ctrl button{width:100%;border-radius:11px;padding:10px;font-size:12.5px;font-weight:800;cursor:pointer;}
+  .stage-ctrl button:active{transform:scale(.97);}
+  .stage-ctrl .sc-scenario{background:var(--im-mint-bg);border:1.5px solid var(--im-mint-soft);color:var(--im-green-d);margin-bottom:8px;}
+  .stage-ctrl .sc-reset{background:#f2f5f4;border:1px solid #e3e8e6;color:#5b6167;}
+  @media(max-width:900px){
+    .stage-ctrl{left:50%;top:6px;transform:translateX(-50%);width:auto;display:flex;align-items:center;gap:10px;padding:7px 12px;flex-wrap:wrap;justify-content:center;}
+    .stage-ctrl .sc-title,.stage-ctrl .sc-hint{display:none;}
+    .stage-ctrl button{width:auto;padding:8px 11px;}
+  }
+
+  /* 어디보자 OFF: 우디·마이크 배지 비활성(숨김) */
+  .device.assist-off .fab,.device.assist-off .mic-badge{opacity:0;pointer-events:none;transition:opacity .3s;}
+
+  /* ══ 자립 곡선 (완료 화면) ══ */
+  .indep{margin:30px 18px 0;padding-top:22px;border-top:1px solid var(--line);}
+  .indep-msg{font-size:16px;font-weight:600;line-height:1.55;color:var(--ink);text-align:center;letter-spacing:-.3px;}
+  .indep-msg b{color:var(--im-green-d);font-weight:800;}
+  .indep-title{font-size:13px;font-weight:700;color:var(--ink-2);text-align:center;margin:22px 0 10px;}
+  .indep-chart{display:flex;align-items:flex-end;justify-content:center;gap:14px;min-height:130px;}
+  .ic-bar-wrap{display:flex;flex-direction:column;align-items:center;gap:0;}
+  .ic-num{font-size:20px;font-weight:800;color:var(--ink-3);margin-bottom:6px;}
+  .ic-bar-wrap.cur .ic-num{color:var(--im-green-d);}
+  .ic-bar{width:44px;border-radius:11px 11px 4px 4px;background:#cfeee7;transition:height .5s cubic-bezier(.22,1,.36,1);}
+  .ic-bar.cur{background:var(--im-grad);box-shadow:0 6px 16px rgba(0,199,169,.35);}
+  .ic-lbl{font-size:12px;font-weight:700;color:var(--ink-3);margin-top:8px;}
+  .ic-bar-wrap.cur .ic-lbl{color:var(--im-green-d);}
+  @media(prefers-reduced-motion:reduce){.ic-bar{transition:none;}}
 </style>
 </head>
 <body>
+
+<!-- 발표 컨트롤 (앱 밖 · 화면 안 가림) : 어디보자 ON/OFF + 자립곡선 초기화 -->
+<div class="stage-ctrl" id="stageCtrl">
+  <div class="sc-title">🎬 발표 도구</div>
+  <div class="sc-row" onclick="toggleAssistant()">
+    <span class="sc-label">어디보자</span>
+    <span class="sw" id="assistSwitch"><span class="knob"></span></span>
+    <span class="sc-state" id="assistState">ON</span>
+  </div>
+  <div class="sc-hint" id="assistHint">켜짐 — 우디가 옆에서 안내해요</div>
+  <button class="sc-scenario" onclick="openSheet()">🗣️ 혼잣말 시나리오</button>
+  <button class="sc-reset" onclick="resetIndependence()">↺ 자립 곡선 초기화</button>
+</div>
+
 <div class="device home" id="device">
 
   <!-- 상태바 -->
@@ -382,7 +436,7 @@
           </div>
           <div class="acct-actions">
             <button class="btn-hist">거래내역</button>
-            <button class="btn-go" onclick="goStep(1)">이체</button>
+            <button class="btn-go" onclick="startTransfer()">이체</button>
           </div>
           <div class="acct-row" style="margin-top:20px;">
             <div class="card-mini"></div>
@@ -445,7 +499,7 @@
     <div class="screen" id="screen-amount">
       <div class="scroll pad-fab">
         <div class="send-from"><span class="sym sm" data-ic="wave"></span> 저축예금(9071) <span class="sub">에서 <span data-ic="chevD"></span></span></div>
-        <div class="send-to"><div class="who"><b id="to-name-a">이혁주</b> 님에게</div><div class="acctno">국민 77130201307046</div></div>
+        <div class="send-to"><div class="who">손자 <b id="to-name-a">김민수</b> 님에게</div><div class="acctno">국민 77130201307046</div></div>
         <div class="amt-box">
           <div class="krw" id="amt-krw"></div>
           <div class="row"><div class="big zero" id="amt-big">0원</div><button class="clr" id="amt-clr" onclick="clearAmt()" data-ic="x"></button></div>
@@ -469,18 +523,18 @@
     <div class="screen" id="screen-confirm">
       <div class="scroll pad-fab">
         <div class="cf-flow"><span class="sym lg" data-ic="wave"></span><span class="chev" data-ic="chevR2"></span><span class="kb-circle">K<span style="font-size:13px;">b</span></span></div>
-        <div class="cf-title"><b id="to-name-c">이혁주</b> 님에게<br><span class="amt" id="confirm-amt">50,000원</span><br>보낼까요?</div>
+        <div class="cf-title">손자 <b id="to-name-c">김민수</b> 님에게<br><span class="amt" id="confirm-amt">50,000원</span><br>보낼까요?</div>
         <div class="warn" id="warn-line"><span data-ic="warn"></span> 최근 1년간 이체내역이 없는 계좌예요</div>
         <div class="detail">
           <div class="r"><span class="k">출금 계좌</span><span class="v">iM뱅크 508-16-032907-1</span></div>
           <div class="r"><span class="k">입금 계좌</span><span class="v">국민 77130201307046</span></div>
-          <div class="r"><span class="k">내 통장 표시</span><span class="v">이혁주 <span data-ic="pencil"></span></span></div>
-          <div class="r"><span class="k">받는 통장 표시</span><span class="v">이혁주 <span data-ic="pencil"></span></span></div>
+          <div class="r"><span class="k">내 통장 표시</span><span class="v">김민수 <span data-ic="pencil"></span></span></div>
+          <div class="r"><span class="k">받는 통장 표시</span><span class="v">박정순 <span data-ic="pencil"></span></span></div>
           <div class="r"><span class="k">수수료</span><span class="v">0 원</span></div>
         </div>
         <div class="more">더보기 <span data-ic="chevD"></span></div>
       </div>
-      <div class="bottom"><div class="btn-row"><button class="btn-gray" onclick="goStep(1)">추가이체</button><button class="btn-primary" onclick="goStep(5)">이체하기</button></div></div>
+      <div class="bottom"><div class="btn-row"><button class="btn-gray" onclick="startTransfer()">추가이체</button><button class="btn-primary" onclick="goStep(5)">이체하기</button></div></div>
     </div>
 
     <!-- 완료 -->
@@ -488,11 +542,17 @@
       <div class="scroll">
         <div class="done">
           <div class="check"><svg viewBox="0 0 24 24" fill="none"><path d="M4 12.5l5 5L20 6.5" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-          <div class="msg"><b id="to-name-d">이혁주</b> 님에게<br><span id="done-amt">50,000원</span>을 보냈어요</div>
+          <div class="msg">손자 <b id="to-name-d">김민수</b> 님에게<br><span id="done-amt">50,000원</span>을 보냈어요</div>
           <div class="sub" id="done-sub">남은 잔액 1,200,000원</div>
+          <!-- 자립 곡선(실동작) -->
+          <div class="indep" id="indep">
+            <div class="indep-msg" id="indepMsg"></div>
+            <div class="indep-title">우디가 도와드린 횟수</div>
+            <div class="indep-chart" id="indepChart"></div>
+          </div>
         </div>
       </div>
-      <div class="bottom"><div class="btn-row"><button class="btn-gray" onclick="goStep(1)">계속이체</button><button class="btn-primary" onclick="goStep(0)">확인</button></div></div>
+      <div class="bottom"><div class="btn-row"><button class="btn-gray" onclick="startTransfer()">계속이체</button><button class="btn-primary" onclick="goStep(0)">확인</button></div></div>
     </div>
 
   </div>
@@ -615,8 +675,53 @@ function paintIcons(root){
 
 /* ═══════════ 앱 상태 ═══════════ */
 const ACCOUNT = { name:'저축예금(iM스마트통장)', short:'저축예금(9071)', no:'iM뱅크 508-16-032907-1', balance:1250000 };
-const RECIPIENT = { name:'이혁주', bank:'국민', no:'77130201307046' };
+const SENDER = { name:'박정순', age:68 };            // 로그인 사용자(어르신)
+const RECIPIENT = { name:'김민수', relation:'손자', bank:'국민', no:'77130201307046' }; // 받는 사람(손자)
 const STORY_AMOUNT = 50000;
+
+/* ═══════════ 발표① 어디보자 ON/OFF (Before/After 대비) ═══════════ */
+let assistantOn = true;
+function setAssistant(on){
+  assistantOn = on;
+  document.getElementById('device').classList.toggle('assist-off', !on);
+  document.getElementById('stageCtrl').classList.toggle('off', !on);
+  document.getElementById('assistState').textContent = on ? 'ON' : 'OFF';
+  document.getElementById('assistHint').textContent = on ? '켜짐 — 우디가 옆에서 안내해요' : '꺼짐 — 도움 없이 혼자 (그냥 은행 앱)';
+  document.getElementById('micText').textContent = on ? '우디가 듣고 있어요 · 혼잣말도 괜찮아요' : '';
+  if(!on){ clearGuide(); if(listening) stopMic(); }   // 끄면 진행 중 안내·마이크 정리
+}
+function toggleAssistant(){ setAssistant(!assistantOn); }
+
+/* ═══════════ 발표③ 자립 곡선 (localStorage, 외부 백엔드 없음) ═══════════ */
+const LS_KEY='eodiboja_help_history';
+const HELP_COACHES=new Set(['pulse','spotlight','arrow','soft']); // '도움' 코치마크(완료 축하는 제외)
+let helpCountThisRound=0;
+function startTransfer(){ helpCountThisRound=0; goStep(1); }      // 이체 시작 시 이번 회차 카운터 리셋
+function loadHistory(){ try{ return JSON.parse(localStorage.getItem(LS_KEY))||[]; }catch(_){ return []; } }
+function saveHistory(a){ try{ localStorage.setItem(LS_KEY, JSON.stringify(a)); }catch(_){} }
+function recordRound(n){ const h=loadHistory(); h.push(n); if(h.length>12) h.shift(); saveHistory(h); return h; }
+function renderIndependence(history){
+  const msgEl=document.getElementById('indepMsg'), chartEl=document.getElementById('indepChart');
+  if(!msgEl) return;
+  if(!history || !history.length){
+    msgEl.innerHTML='이체를 완료할 때마다 <b>우디가 도와드린 횟수</b>가 쌓여요.<br>쓸수록 줄어드는 걸 함께 확인해요 🙂';
+    chartEl.innerHTML=''; return;
+  }
+  const cur=history[history.length-1], prev=history.length>=2?history[history.length-2]:null;
+  let msg;
+  if(cur===0) msg='오늘은 <b>한 번도</b> 안 부르고 혼자 다 하셨어요!<br>정말 잘하셨어요 👏';
+  else if(prev===null) msg='오늘은 우디가 <b>'+cur+'번</b> 도와드렸어요.<br>다음엔 더 익숙해지실 거예요.';
+  else if(cur<prev) msg='지난번엔 <b>'+prev+'번</b> 도와드렸는데, 오늘은 <b>'+cur+'번만</b> 도와드렸어요.<br>점점 혼자 잘하고 계세요! 👍';
+  else if(cur===prev) msg='오늘도 <b>'+cur+'번</b> 도와드렸어요.<br>천천히 익숙해지고 계세요.';
+  else msg='오늘은 <b>'+cur+'번</b> 도와드렸어요.<br>어려우면 언제든 우디를 불러주세요.';
+  msgEl.innerHTML=msg;
+  const recent=history.slice(-5), maxV=Math.max(1,...recent), base=history.length-recent.length;
+  chartEl.innerHTML=recent.map((v,i)=>{
+    const h=Math.round(20+(v/maxV)*94), isLast=i===recent.length-1;
+    return '<div class="ic-bar-wrap'+(isLast?' cur':'')+'"><div class="ic-num">'+v+'</div><div class="ic-bar'+(isLast?' cur':'')+'" style="height:'+h+'px"></div><div class="ic-lbl">'+(base+i+1)+'회</div></div>';
+  }).join('');
+}
+function resetIndependence(){ saveHistory([]); renderIndependence([]); toast('자립 곡선 데이터를 초기화했어요 ↺'); }
 
 /* ═══════════ 화면(스텝) ═══════════ */
 const STEPS = [
@@ -666,6 +771,9 @@ function commitTransfer(){
   document.getElementById('done-sub').textContent='남은 잔액 '+fmt(ACCOUNT.balance)+'원';
   document.getElementById('home-balance').textContent=fmt(ACCOUNT.balance)+'원';
   document.getElementById('withdrawable').textContent=fmt(ACCOUNT.balance)+'원'; // P1: 출금가능금액도 잔액과 동기화
+  // 자립 곡선: 어디보자가 켜져 있던 회차만 기록(도움 횟수)
+  if(assistantOn){ const h=recordRound(helpCountThisRound); renderIndependence(h); helpCountThisRound=0; }
+  else { renderIndependence(loadHistory()); }
 }
 
 /* 계좌번호 입력 */
@@ -754,6 +862,11 @@ function renderNavMini(){ document.getElementById('navMini').innerHTML=STEP_NAME
 
 function matchReaction(text){ const t=text.replace(/\s/g,''); for(const r of REACTIONS)for(const kw of r.keywords)if(t.includes(kw.replace(/\s/g,'')))return r; return null; }
 function handleUtterance(text){
+  if(!assistantOn){   // 어디보자 꺼짐: 아무 안내도 없는 '그냥 은행 앱'
+    document.getElementById('heard').innerHTML='🔇 <b>어디보자가 꺼져 있어요</b> — 혼잣말을 해도 아무 안내가 없어요.<br><span class="quote">“'+text+'”</span>';
+    clearGuide();
+    return;
+  }
   document.getElementById('heard').innerHTML='👂 <b>이렇게 들었어요</b><br><span class="quote">“'+text+'”</span>';
   const r=matchReaction(text), reaction=r||FALLBACK;
   if(reaction.step!==null && reaction.step!==undefined && reaction.step!==curStep){
@@ -786,6 +899,7 @@ function applyCoach(reaction){
     case 'celebrate':  showCelebrate(); break;                // ⑤ 완료: 축하 컨페티
     default: clearCoach();
   }
+  if(HELP_COACHES.has(reaction.coach)) helpCountThisRound++;  // 자립 곡선: 이번 회차 '도움' 횟수 집계
 }
 function clearCoach(){
   document.getElementById('dim').classList.remove('on');
@@ -904,6 +1018,7 @@ function tick(){ const d=new Date(); let h=d.getHours(); const m=String(d.getMin
 
 /* ═══════════ 초기화 ═══════════ */
 paintIcons(); renderHeader(); renderSim(); renderNavMini(); refreshAmt(); tick(); setInterval(tick,15000);
+renderIndependence(loadHistory());   // 완료 화면 자립 곡선 초기 렌더
 
 /* ═══════════ 앱 진입 시퀀스 (스플래시 → 지문 인증 → 홈) ═══════════ */
 let bootTimers=[];
