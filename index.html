@@ -376,6 +376,14 @@
   .assist-toggle-btn.off{background:#e5484d;}
   .sheet-reset{flex:0 0 auto;border:1px solid #e3e8e6;background:#f2f5f4;color:#5b6167;border-radius:12px;padding:12px 14px;font-size:12.5px;font-weight:800;cursor:pointer;}
   .assist-toggle-btn:active,.sheet-reset:active{transform:scale(.97);}
+  /* 발표 자동 시연 (핸즈프리) */
+  .auto-btn{width:100%;border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:800;cursor:pointer;background:var(--im-grad);color:#fff;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 6px 18px rgba(0,199,169,.35);margin:2px 0 2px;}
+  .auto-btn.stop{background:#e5484d;box-shadow:0 6px 18px rgba(229,72,77,.35);}
+  .auto-btn:active{transform:scale(.98);}
+  .stage-ctrl .sc-auto{background:var(--im-grad);border:none;color:#fff;margin-bottom:8px;}
+  .stage-ctrl .sc-auto.stop{background:#e5484d;}
+  .auto-stop{position:absolute;top:52px;left:50%;transform:translateX(-50%);z-index:120;background:rgba(15,23,42,.92);color:#fff;font-size:12.5px;font-weight:800;border-radius:20px;padding:7px 16px;cursor:pointer;display:none;box-shadow:0 6px 18px rgba(0,0,0,.3);white-space:nowrap;}
+  .auto-stop.on{display:block;}
 
   /* AI 이해 모드(LLM/규칙) 설정 */
   .sc-mode{background:#eef4ff;border:1.5px solid #cfe0ff;color:#2b62c9;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:6px;}
@@ -458,6 +466,7 @@
   </div>
   <div class="sc-hint" id="assistHint">켜짐 — 우디가 옆에서 안내해요</div>
   <button class="sc-mode" onclick="openSheet()"><span class="dot"></span>AI 이해: <b id="scModeLabel">규칙</b></button>
+  <button class="sc-auto" id="scAuto" onclick="toggleAutoPlay()">▶ 발표 자동 시연</button>
   <button class="sc-scenario" onclick="openSheet()">🗣️ 혼잣말 시나리오</button>
   <button class="sc-reset" onclick="resetIndependence()">↺ 자립 곡선 초기화</button>
 </div>
@@ -633,6 +642,7 @@
   <div class="coach-arrow" id="coachArrow"><div class="ca-tip"></div><div class="ca-point"></div></div>
   <div class="confetti" id="confetti"></div>
   <div class="toast" id="toast"></div>
+  <div class="auto-stop" id="autoStop" onclick="stopAutoPlay()">■ 자동 시연 중 · 눌러서 중지</div>
   <div class="mic-badge" id="micBadge" onclick="openSheet()"><span class="mdot"></span><span id="micText">우디가 듣고 있어요 · 혼잣말도 괜찮아요</span><span class="mb-more">›</span></div>
   <button class="fab" id="fab" onclick="toggleMic()"><span class="ring"></span><span class="fab-face" data-ic="woodi"></span><span class="fab-ear" data-ic="ear"></span></button>
   <div class="bubble" id="bubble">
@@ -658,6 +668,7 @@
       <button class="assist-toggle-btn" id="assistToggleBtn" onclick="toggleAssistant()">어디보자 <b>켜짐</b> · 눌러서 끄기</button>
       <button class="sheet-reset" onclick="resetIndependence()">↺ 초기화</button>
     </div>
+    <button class="auto-btn" id="autoBtn" onclick="toggleAutoPlay()">▶ 발표 자동 시연 <span style="font-weight:600;opacity:.85;">· 약 30초, 손 안 대고</span></button>
     <div class="sec">🧠 AI 이해 모드 <span class="ai-badge" id="aiModeBadge">규칙</span></div>
     <div class="ai-cfg" id="aiCfg" data-mode="rule">
       <div class="ai-seg">
@@ -1384,6 +1395,44 @@ function toast(msg){
 /* ═══════════ 데모 바텀시트 ═══════════ */
 function openSheet(){ document.getElementById('scrim').classList.add('on'); document.getElementById('sheet').classList.add('on'); }
 function closeSheet(){ document.getElementById('scrim').classList.remove('on'); document.getElementById('sheet').classList.remove('on'); }
+
+/* ═══════════ 발표 자동 시연 (핸즈프리, 영상 녹화용) ═══════════
+   골든 시나리오를 정해진 타이밍에 자동 진행 → 손 안 대고 화면만 녹화.
+   혼잣말은 실제 handleUtterance로 흘려 2단 처리·코치마크·TTS가 그대로 발동. */
+let autoPlaying=false, autoRun=0;
+function ensureBooted(){ ['splash','biometric'].forEach(id=>{ const e=document.getElementById(id); if(e) e.classList.add('gone'); }); try{ clearBootTimers(); }catch(_){} }
+function syncAutoBtn(){
+  const b=document.getElementById('autoBtn'); if(b){ b.classList.toggle('stop',autoPlaying); b.innerHTML=autoPlaying?'■ 자동 시연 중지':'▶ 발표 자동 시연 <span style="font-weight:600;opacity:.85;">· 약 30초, 손 안 대고</span>'; }
+  const sc=document.getElementById('scAuto'); if(sc){ sc.classList.toggle('stop',autoPlaying); sc.textContent=autoPlaying?'■ 자동 시연 중지':'▶ 발표 자동 시연'; }
+  const s=document.getElementById('autoStop'); if(s) s.classList.toggle('on',autoPlaying);
+}
+function toggleAutoPlay(){ if(autoPlaying) stopAutoPlay(); else startAutoPlay(); }
+function stopAutoPlay(){ autoPlaying=false; autoRun++; clearGuide(); if('speechSynthesis' in window) speechSynthesis.cancel(); syncAutoBtn(); }
+async function startAutoPlay(){
+  autoPlaying=true; const run=++autoRun; syncAutoBtn();
+  closeSheet(); ensureBooted(); setAssistant(true);
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  const alive=()=>autoPlaying && run===autoRun;
+  const say=async t=>{ if(!alive())return; await handleUtterance(t); };
+  // 키가 있으면 '처음 보는 말'로 AI 정밀 분석을, 없으면 규칙으로 확실히 잡히는 사투리로
+  const useAiLine=(intentMode==='llm' && !!aiKey());
+  const ambiguous=useAiLine?'어 이거 참 뭐라 해야 하나':'당최 뭐가 뭔지 모르겠다';
+  const gapAmb=useAiLine?5600:4300;   // LLM 경로는 왕복 시간 여유
+  try{
+    goStep(0);                              await wait(900);  if(!alive())return;
+    startTransfer();                        await wait(1500); if(!alive())return;   // 이체 시작(받는사람)
+    await say('계좌번호가 뭐였더라');         await wait(4300); if(!alive())return;   // ⚡경량 → 계좌입력 안내
+    clearGuide(); goStep(3);                await wait(1300); if(!alive())return;   // 금액 화면
+    await say('이게 뭐여');                  await wait(4300); if(!alive())return;   // ⚡경량 → 숫자판 안내
+    clearGuide(); amount=50000; refreshAmt();await wait(1500);if(!alive())return;   // 5만원 입력됨
+    await say(ambiguous);                    await wait(gapAmb);if(!alive())return;  // 처음 보는 말(AI) / 사투리(경량)
+    clearGuide(); goStep(4);                await wait(1400); if(!alive())return;   // 확인 화면(빨간 경고)
+    await say('와 빨갛노');                   await wait(4700); if(!alive())return;   // 안심 케어
+    clearGuide(); goStep(5);                await wait(1700); if(!alive())return;   // 완료 + 자립 곡선
+    await say('됐다 다 했어');                await wait(4800); if(!alive())return;   // 완료 멘트(개입 횟수 반영)
+    clearGuide();
+  } finally { if(run===autoRun){ autoPlaying=false; syncAutoBtn(); } }
+}
 
 /* ═══════════ 실시간 시계 ═══════════ */
 function tick(){ const d=new Date(); let h=d.getHours(); const m=String(d.getMinutes()).padStart(2,'0'); document.getElementById('sb-time').textContent=h+':'+m; }
