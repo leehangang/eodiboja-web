@@ -418,6 +418,11 @@
   .bubble .gb-lat{margin-left:6px;flex:0 0 auto;background:#0f172a;color:#fff;font-size:11px;font-weight:800;border-radius:8px;padding:2px 7px;white-space:nowrap;opacity:0;transition:opacity .2s;}
   .bubble .gb-lat.on{opacity:1;}
   .bubble .gb-lat.light{background:var(--im-green-d);} .bubble .gb-lat.llm{background:#2b62c9;}
+  /* 2단 분기 표시 — 말풍선에 직접(폰에서 바로 보임) */
+  .bubble .gb-route{display:none;align-items:center;gap:5px;font-size:11.5px;font-weight:800;margin:-2px 0 9px;padding:4px 10px;border-radius:9px;width:fit-content;}
+  .bubble.waiting .gb-route,.bubble.guiding .gb-route{display:inline-flex;}
+  .bubble .gb-route.light{background:var(--im-mint-bg);color:var(--im-green-d);}
+  .bubble .gb-route.llm{background:#eef4ff;color:#2b62c9;}
   /* 2단 처리: 경량(규칙) 즉시 vs LLM 호출 — 파이프라인 2번째 단계 색 구분 */
   .gb-pipe.pipe-light .pstep[data-i="1"].done .pi{background:var(--im-green);}
   .gb-pipe.pipe-llm .pstep[data-i="1"].active .pi{background:#dbeaff;}
@@ -638,6 +643,7 @@
       <div class="pstep" data-i="2"><span class="pi">📱</span><span class="pl">화면 맥락</span></div>
       <div class="pstep" data-i="3"><span class="pi">💬</span><span class="pl">안내 생성</span></div>
     </div>
+    <div class="gb-route" id="gbRoute"></div>
     <div class="gb-text" id="bubbleText"></div>
     <div class="gb-close" onclick="clearGuide()">닫기 ✕</div>
   </div>
@@ -980,9 +986,9 @@ function renderSim(){
   const undef=['어 이거 참 뭐라 해야 하나','영 모르겄네 그거','손이 자꾸 헛짚네','이래 눌러도 되나 싶다'];
   const undefBtns=undef.map(q=>
     '<button class="sim-btn ai-only" style="grid-column:span 2;background:#eef4ff;border-color:#cfe0ff;color:#2b62c9;" onclick="handleUtterance(\''+q.replace(/'/g,"\\'")+'\')">'
-    +'<span class="emo">🧠</span>'+q+'<span class="dia-tag" style="background:#2b62c9;">AI만 이해</span></button>').join('');
+    +'<span class="emo">🧠</span>'+q+'<span class="dia-tag" style="background:#2b62c9;">AI 정밀 분석</span></button>').join('');
   document.getElementById('simGrid').innerHTML=btns
-    +'<div style="grid-column:span 2;font-size:12px;font-weight:800;color:#2b62c9;margin:6px 2px 0;">🧠 정의하지 않은 말 — <span style="font-weight:700;">AI 모드에서만 이해해요</span></div>'
+    +'<div style="grid-column:span 2;font-size:12px;font-weight:800;color:#2b62c9;margin:6px 2px 0;">🧠 처음 보는 표현 — <span style="font-weight:700;">규칙으로 못 잡아 AI 정밀 분석으로 감</span></div>'
     +undefBtns
     +'<button class="sim-btn" style="grid-column:span 2;background:#f4f7f6;border-color:var(--line);color:var(--ink-2);" onclick="handleUtterance(\'오늘 날씨 좋네\')"><span class="emo">❓</span>은행과 무관한 말 (예: "오늘 날씨 좋네")</button>';
 }
@@ -1040,7 +1046,7 @@ function syncAiUi(){
   if(note){
     note.classList.remove('warn');
     if(intentMode==='llm' && !hasKey){ note.classList.add('warn'); note.innerHTML='⚠️ <b>API 키가 없어 실제로는 규칙 기반으로 동작</b>합니다. 키를 저장하면 AI가 정의하지 않은 혼잣말도 이해해요.'; }
-    else if(intentMode==='llm'){ note.innerHTML='🧠 <b>AI 이해 모드 (2단 처리)</b> — 자주 쓰는 표현은 <b>경량(규칙)으로 즉시</b> 응답하고, <b>애매한 발화만 '+(prov==='openai'?'OpenAI':'Claude')+' 호출</b>합니다. 응답 시간이 말풍선에 표시돼요. 실패 시 자동 규칙 폴백. <b>키는 이 브라우저에만 저장</b>됩니다.'; }
+    else if(intentMode==='llm'){ note.innerHTML='🧠 <b>AI 이해 모드 (2단 처리)</b> — 자주 쓰는 표현은 <b>⚡경량(규칙)으로 즉시</b>, 규칙으로 애매한 발화만 <b>🧠'+(prov==='openai'?'OpenAI':'Claude')+' 정밀 분석</b>. 말풍선에 어느 경로인지·응답 시간이 표시돼요. 실패 시 자동 규칙 폴백. <b>키는 이 브라우저에만 저장</b>됩니다.'; }
     else{ note.innerHTML='규칙 기반: 정해둔 표현만 인식합니다. <b>AI(LLM)</b>로 바꾸면 정의하지 않은 혼잣말도 이해해요.'; }
   }
 }
@@ -1115,9 +1121,9 @@ function verdictHTML(o){
   o=o||{}; const ko=ID_TO_KO[o.id]||'안내';
   const lat = (o.ms!=null) ? ' <span class="lat">응답 '+fmtLatency(o.ms)+'</span>' : '';
   switch(o.kind){
-    case 'light-ai':  return '<div class="verdict light"><span class="chip">⚡ 경량 처리</span> 자주 쓰는 표현 → 규칙으로 즉시 · 유형 <b>'+ko+'</b>'+lat+'</div>';
-    case 'light-rule':return '<div class="verdict light"><span class="chip">⚡ 규칙 처리</span> 유형 <b>'+ko+'</b>'+lat+'</div>';
-    case 'ai':        return '<div class="verdict"><span class="chip">🧠 LLM 호출</span> 애매한 발화 → AI가 이해 · 유형 <b>'+ko+'</b>'+lat+'</div>';
+    case 'light-ai':  return '<div class="verdict light"><span class="chip">⚡ 경량 처리 · 즉시 응답</span> 규칙으로 바로 잡음 · 유형 <b>'+ko+'</b>'+lat+'</div>';
+    case 'light-rule':return '<div class="verdict light"><span class="chip">⚡ 규칙 처리 · 즉시 응답</span> 유형 <b>'+ko+'</b>'+lat+'</div>';
+    case 'ai':        return '<div class="verdict"><span class="chip">🧠 AI 정밀 분석</span> 규칙으로 애매 → LLM 호출 · 유형 <b>'+ko+'</b>'+lat+'</div>';
     case 'fallback':  return '<div class="verdict fallback"><span class="chip">⚠️ 규칙 폴백</span> AI 연결이 어려워 규칙으로'+(o.id?' · <b>'+ko+'</b>':'')+lat+'</div>';
     case 'reask':     return '<div class="verdict fallback"><span class="chip">🤔 잘 못 알아들음</span> 엉뚱한 안내 대신 다시 여쭤봐요'+lat+'</div>';
     case 'nokey':     return '<div class="verdict fallback"><span class="chip">🔑 AI 모드 대기</span> 키를 넣으면 애매한 말도 AI가 이해해요'+(o.id?' · 규칙 <b>'+ko+'</b>':'')+lat+'</div>';
@@ -1126,7 +1132,13 @@ function verdictHTML(o){
 }
 
 /* ── 처리 파이프라인(4단계) 시각화 ── (2단계 라벨: 경량 vs LLM) */
-function pipeLabel(tier){ const l=document.getElementById('pstep1lbl'); if(l) l.textContent=(tier==='llm')?'LLM 호출':'경량 처리'; }
+function pipeLabel(tier){ const l=document.getElementById('pstep1lbl'); if(l) l.textContent=(tier==='llm')?'AI 정밀 분석':'경량 처리'; }
+/* 2단 분기 표시(말풍선): light=경량 즉시, llm=AI 정밀 분석 */
+function setRoute(tier, phase){
+  const el=document.getElementById('gbRoute'); if(!el) return;
+  if(tier==='llm'){ el.className='gb-route llm'; el.textContent=(phase==='wait')?'🧠 AI 정밀 분석 중…':'🧠 AI 정밀 분석'; }
+  else { el.className='gb-route light'; el.textContent='⚡ 경량 처리 · 즉시 응답'; }
+}
 function pipeState(states){ for(let i=0;i<4;i++){ const el=document.querySelector('.pstep[data-i="'+i+'"]'); if(el){ el.classList.remove('done','active'); if(states[i]) el.classList.add(states[i]); } } }
 function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
 function reducedMotion(){ return window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches; }
@@ -1150,7 +1162,7 @@ async function handleUtterance(text){
   const noKeyLlm=(intentMode==='llm' && !hasKey);
   const tier = goLlm ? 'llm' : 'light';
 
-  heard.innerHTML=heardBase+(goLlm?'<div class="verdict"><span class="thinking"><i></i><i></i><i></i></span> 애매한 발화 → LLM에 물어보는 중…</div>':'');
+  heard.innerHTML=heardBase+(goLlm?'<div class="verdict"><span class="thinking"><i></i><i></i><i></i></span> 규칙으로 애매 → <b>AI 정밀 분석</b> 중…</div>':'');
   pipeLabel(tier);
   const pipeEl=document.getElementById('gbPipe'); if(pipeEl){ pipeEl.classList.remove('pipe-light','pipe-llm'); pipeEl.classList.add(goLlm?'pipe-llm':'pipe-light'); }
   showWaiting(tier);
@@ -1206,6 +1218,7 @@ function showWaiting(tier){
   const b=document.getElementById('bubble');
   b.classList.add('on','waiting'); b.classList.remove('guiding');
   const lat=document.getElementById('gbLat'); if(lat) lat.className='gb-lat';   // 새 발화: 이전 배지 숨김
+  setRoute(tier, 'wait');
   document.getElementById('bubbleText').innerHTML = (tier==='llm') ? '잠깐만요, 지금 <span class="hl">화면을 볼게요</span>…' : '<span class="hl">바로</span> 알려드릴게요…';
   if(tier==='llm') speak('잠깐만요, 지금 화면을 볼게요.');   // 실제 대기 시간이 있는 LLM 경로만 음성
 }
@@ -1215,6 +1228,7 @@ function showGuide(reaction){
   b.classList.add('on','guiding'); b.classList.remove('waiting');
   const lat=document.getElementById('gbLat');   // 응답 시간 배지(레이턴시 가시화)
   if(lat){ if(reaction._lat!=null){ lat.textContent='⏱ '+fmtLatency(reaction._lat); lat.className='gb-lat on '+(reaction._tier==='llm'?'llm':'light'); } else lat.className='gb-lat'; }
+  setRoute(reaction._tier, 'done');   // 2단 분기 확정 표시
   document.getElementById('bubbleText').innerHTML=reaction.text;
   setTimeout(()=>applyCoach(reaction), 70);   // 화면 전환/레이아웃 정착 후
   speak(stripTags(reaction.text));
