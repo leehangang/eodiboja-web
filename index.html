@@ -966,6 +966,9 @@ const REACTIONS = [
 const FALLBACK = { text:'어디를 도와드릴까요? <span class="hl">\'이게 뭐여\'</span>, <span class="hl">\'계좌번호가 뭐였더라\'</span>처럼 편하게 말씀하셔도 돼요.', step:null, coach:null, spot:null };
 /* 못 알아들은 발화 → 엉뚱한 안내 대신 되묻기 */
 const REASK = { id:'reask', text:'죄송해요, 잘 못 들었어요. <span class="hl">한 번만 더</span> 또박또박 말씀해 주시겠어요?', step:null, coach:null, spot:null };
+/* 이중 입력 안내: 인식 실패가 반복될 때만(잔소리 방지) 부드럽게 "직접 눌러도 된다" */
+let reaskStreak=0;
+const DUAL_INPUT_HINT='<br><span class="hl">말로 하기 어려우시면</span>, 화면을 <span class="hl">직접 천천히 눌러</span>도 괜찮아요. 우디가 옆에서 봐드릴게요.';
 /* 같은 어려움을 반복하면(계속 헤매면) 더 구체적으로 짚어주는 2차 멘트 */
 const ESC_PREFIX='<span class="hl">아직 헷갈리시죠?</span> ';
 const ESCALATE = {
@@ -1174,7 +1177,7 @@ const RECALL_BY_STEP={
 };
 function buildRecall(){
   const step=curStep, info=RECALL_BY_STEP[step]||RECALL_BY_STEP[3];
-  const to=RECIPIENT.relation+' '+RECIPIENT.name+' 님', amt=fmt(amount||STORY_AMOUNT)+'원';
+  const to=RECIPIENT.relation+' '+RECIPIENT.name+' 님', amt=krwWords(amount||STORY_AMOUNT);   // 구어체("5만원")
   let text;
   if(step===0)      text='아직 <span class="hl">시작 전</span>이에요. '+to+'께 보내시려면 파란 <span class="hl">이체</span> 버튼을 누르면 시작돼요.';
   else if(step===5) text=to+'께 '+amt+'을 <span class="hl">이미 다 보내셨어요</span>. 잘하셨어요! 🎉';
@@ -1333,11 +1336,15 @@ async function handleUtterance(text){
 
   // 확신도 낮음 + 도움 유형 → 바로 안내 대신 짧게 확인 (확실하면 이 단계 건너뜀)
   if(confidence==='low' && HELP_IDS.has(reaction.id)){
+    reaskStreak=0;   // 이해해서 확인까지 갔으니 실패 연속 아님
     heard.innerHTML=heardBase+verdictHTML({kind:'confirm',id:reaction.id,ms:latencyMs});
     askConfirm(reaction);
     return;
   }
-  heard.innerHTML=heardBase+(verdict||'')+(reaction.escalated?'<div class="verdict" style="color:#c9772b;"><span class="chip" style="background:#fbeee0;color:#c9772b;">🔁 반복 감지</span> 같은 어려움 → 더 자세히 안내</div>':'');
+  // 인식 실패(되묻기)가 2회 이상 반복될 때만 이중 입력(말/터치) 안내 (매번 X → 잔소리 방지)
+  if(reaction.id==='reask'){ if(++reaskStreak>=2) reaction=Object.assign({}, reaction, { text:reaction.text+DUAL_INPUT_HINT }); }
+  else reaskStreak=0;
+  heard.innerHTML=heardBase+(verdict||'')+(reaction.escalated?'<div class="verdict" style="color:#c9772b;"><span class="chip" style="background:#fbeee0;color:#c9772b;">🔁 반복 감지</span> 같은 어려움 → 더 자세히 안내</div>':'')+(reaskStreak>=2?'<div class="verdict" style="color:#2b62c9;"><span class="chip" style="background:#eef4ff;color:#2b62c9;">🖐 이중 입력</span> 인식이 반복 실패 → 직접 터치 안내</div>':'');
 
   if(reaction.step!==null && reaction.step!==undefined && reaction.step!==curStep){
     goStep(reaction.step);
