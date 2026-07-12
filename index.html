@@ -298,8 +298,6 @@
   .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
 
   /* 데모 시나리오 런처 & 바텀시트 */
-  .demo-chip{position:absolute;left:14px;bottom:34px;z-index:53;background:rgba(255,255,255,.92);color:var(--im-green-d);border:1.5px solid var(--im-mint-soft);border-radius:20px;padding:8px 13px;font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.12);backdrop-filter:blur(4px);}
-  .demo-chip svg{width:15px;height:15px;}
   .scrim{position:absolute;inset:0;z-index:70;background:rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .3s;}
   .scrim.on{opacity:1;pointer-events:auto;}
   .sheet{position:absolute;left:0;right:0;bottom:0;z-index:71;background:#fff;border-radius:24px 24px 0 0;padding:8px 16px calc(20px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .34s cubic-bezier(.22,1,.36,1);max-height:82%;overflow-y:auto;box-shadow:0 -10px 40px rgba(0,0,0,.2);}
@@ -443,6 +441,8 @@
 
   /* 어디보자 OFF: 우디·마이크 배지 비활성(숨김) */
   .device.assist-off .fab,.device.assist-off .mic-badge{opacity:0;pointer-events:none;transition:opacity .3s;}
+  /* 안내 말풍선이 뜨면 하단의 FAB·마이크 배지를 비워 겹침 방지(안내에 집중) */
+  .device.bubble-open .fab,.device.bubble-open .mic-badge{opacity:0;pointer-events:none;transition:opacity .25s;}
 
   /* ══ 자립 곡선 (완료 화면) ══ */
   .indep{margin:30px 18px 0;padding-top:22px;border-top:1px solid var(--line);}
@@ -1234,6 +1234,7 @@ let guideTimer=null;
 function showWaiting(tier){
   const b=document.getElementById('bubble');
   b.classList.add('on','waiting'); b.classList.remove('guiding');
+  document.getElementById('device').classList.add('bubble-open');   // 하단 FAB·마이크 배지 비움
   const lat=document.getElementById('gbLat'); if(lat) lat.className='gb-lat';   // 새 발화: 이전 배지 숨김
   setRoute(tier, 'wait');
   document.getElementById('bubbleText').innerHTML = (tier==='llm') ? '잠깐만요, 지금 <span class="hl">화면을 볼게요</span>…' : '<span class="hl">바로</span> 알려드릴게요…';
@@ -1243,6 +1244,7 @@ function showGuide(reaction){
   clearTimeout(guideTimer);
   const b=document.getElementById('bubble');
   b.classList.add('on','guiding'); b.classList.remove('waiting');
+  document.getElementById('device').classList.add('bubble-open');
   const lat=document.getElementById('gbLat');   // 응답 시간 배지(레이턴시 가시화)
   if(lat){ if(reaction._lat!=null){ lat.textContent='⏱ '+fmtLatency(reaction._lat); lat.className='gb-lat on '+(reaction._tier==='llm'?'llm':'light'); } else lat.className='gb-lat'; }
   setRoute(reaction._tier, 'done');   // 2단 분기 확정 표시
@@ -1251,7 +1253,7 @@ function showGuide(reaction){
   speak(stripTags(reaction.text));
   guideTimer=setTimeout(clearGuide, 13000);
 }
-function clearGuide(){ clearTimeout(guideTimer); const b=document.getElementById('bubble'); b.classList.remove('on','waiting','guiding'); clearCoach(); stopSpeak(); }
+function clearGuide(){ clearTimeout(guideTimer); const b=document.getElementById('bubble'); b.classList.remove('on','waiting','guiding'); document.getElementById('device').classList.remove('bubble-open'); clearCoach(); stopSpeak(); }
 function stripTags(h){ const d=document.createElement('div'); d.innerHTML=h; return d.textContent; }
 
 /* ── 감정 상태 → 코치마크 형태 자동 선택 ── */
