@@ -1521,6 +1521,20 @@ function isEcho(text){
   for(let i=0;i+4<=t.length;i++){ if(lastSpoken.indexOf(t.substr(i,4))>=0) return true; }
   return false;
 }
+/* 소음·중복 인식 방지 게이트 — 미세 소음(초단문)·같은 말 연속·처리 직후 재발화를 걸러 화면 깜빡임 방지.
+   (확인 대기 중엔 짧은 '응/아니'도 받아야 하므로 완화. 시뮬 버튼은 이 게이트를 거치지 않음) */
+let lastHeard='', lastHeardAt=0, recogCooldownUntil=0;
+function shouldProcess(text){
+  const t=String(text).trim(); if(!t) return false;
+  const now=performance.now();
+  if(!pendingConfirm){
+    if(normSpeech(t).length<2) return false;             // 노이즈성 초단문 무시
+    if(now < recogCooldownUntil) return false;           // 직전 처리 후 쿨다운(깜빡임 방지)
+  }
+  if(t===lastHeard && (now-lastHeardAt)<1500) return false;  // 같은 말 연속 → 중복 무시
+  lastHeard=t; lastHeardAt=now; recogCooldownUntil=now+650;
+  return true;
+}
 function speak(text){
   if(!('speechSynthesis' in window))return; speechSynthesis.cancel();
   const chunks=chunkForSpeech(text); if(!chunks.length)return;
@@ -1600,9 +1614,10 @@ function initRecog(){
     }
     const live=(f||interim).trim();
     if(isEcho(live)) return;   // 우디 TTS를 마이크가 되받은 에코 → 무시(오인식·페이지 튐 방지)
-    // barge-in: 안내 재생 중 '실제 발화'(추임새 아님)가 들리면 즉시 멈춤 (final 안 기다림)
-    if(speaking && live && !isFillerOnly(live)) bargeIn();
-    if(f.trim() && !isEcho(f.trim())) handleUtterance(f.trim());
+    // barge-in: 안내 재생 중 '실제 발화'(추임새 아님)가 들리면 즉시 멈춤. 초단문 소음은 트리거 안 함
+    if(speaking && live && !isFillerOnly(live) && normSpeech(live).length>=2) bargeIn();
+    const ff=f.trim();
+    if(ff && !isEcho(ff) && shouldProcess(ff)) handleUtterance(ff);   // 소음·중복 게이트 통과분만 처리
   };
   r.onerror=(e)=>{ if(e.error==='not-allowed'||e.error==='service-not-allowed'){ setMic(false); document.getElementById('micHint').innerHTML='⚠️ 마이크 권한이 거부됐어요. 아래 <b>혼잣말 버튼</b>으로 체험해 보세요.'; } };
   r.onend=()=>{ if(listening){ try{r.start();}catch(_){} } };
