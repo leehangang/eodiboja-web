@@ -256,6 +256,20 @@
   .bubble .gb-text{font-size:17.5px;line-height:1.55;color:var(--ink);font-weight:400;letter-spacing:-.3px;}
   .bubble .gb-text .hl{color:var(--im-green-d);font-weight:800;}
   .bubble .gb-close{margin-top:10px;text-align:center;font-size:13px;color:var(--ink-3);font-weight:700;cursor:pointer;}
+  /* 처리 파이프라인(음성 인식 → 이해 → 화면 맥락 → 안내 생성) */
+  .bubble .gb-pipe{display:flex;align-items:flex-start;margin:2px 0 12px;}
+  .bubble.guiding .gb-pipe{display:none;}
+  .bubble.waiting .gb-close{display:none;}
+  .pstep{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;opacity:.38;transition:opacity .25s;}
+  .pstep .pi{width:27px;height:27px;border-radius:50%;background:#eef1f4;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;transition:background .25s,color .25s;position:relative;z-index:1;}
+  .pstep .pl{font-size:9.5px;font-weight:700;color:var(--ink-3);white-space:nowrap;letter-spacing:-.4px;}
+  .pstep::after{content:'';position:absolute;top:13px;left:50%;width:100%;height:2px;background:#e6eaed;z-index:0;}
+  .pstep:last-child::after{display:none;}
+  .pstep.active{opacity:1;} .pstep.active .pi{background:#dbeaff;animation:pstepPulse 1s infinite;}
+  .pstep.done{opacity:1;} .pstep.done .pi{background:var(--im-green);color:#fff;} .pstep.done .pl{color:var(--im-green-d);}
+  .pstep.done::after{background:var(--im-green);}
+  @keyframes pstepPulse{0%,100%{box-shadow:0 0 0 0 rgba(43,98,201,.35);}50%{box-shadow:0 0 0 6px rgba(43,98,201,0);}}
+  @media(prefers-reduced-motion:reduce){ .pstep.active .pi{animation:none;} }
 
   .fab{position:absolute;right:16px;bottom:92px;z-index:55;width:58px;height:58px;border-radius:50%;background:var(--im-grad);display:flex;align-items:flex-end;justify-content:center;box-shadow:0 8px 24px rgba(0,199,169,.5);cursor:pointer;border:none;overflow:hidden;}
   .fab .fab-face{display:flex;align-items:flex-end;justify-content:center;height:100%;}
@@ -610,6 +624,12 @@
   <button class="fab" id="fab" onclick="toggleMic()"><span class="ring"></span><span class="fab-face" data-ic="woodi"></span><span class="fab-ear" data-ic="ear"></span></button>
   <div class="bubble" id="bubble">
     <div class="gb-head"><span class="ava" data-ic="woodi"></span><span class="nm">어디보자 <span style="font-weight:600;color:var(--ink-3);font-size:11px;">· 우디</span><small>옆에서 알려드려요</small></span><span class="spk" id="spkIcon" data-ic="speaker"></span></div>
+    <div class="gb-pipe" id="gbPipe">
+      <div class="pstep" data-i="0"><span class="pi">🎙️</span><span class="pl">음성 인식</span></div>
+      <div class="pstep" data-i="1"><span class="pi">🧠</span><span class="pl" id="pstep1lbl">AI 이해</span></div>
+      <div class="pstep" data-i="2"><span class="pi">📱</span><span class="pl">화면 맥락</span></div>
+      <div class="pstep" data-i="3"><span class="pi">💬</span><span class="pl">안내 생성</span></div>
+    </div>
     <div class="gb-text" id="bubbleText"></div>
     <div class="gb-close" onclick="clearGuide()">닫기 ✕</div>
   </div>
@@ -839,7 +859,7 @@ function commitTransfer(){
   document.getElementById('home-balance').textContent=fmt(ACCOUNT.balance)+'원';
   document.getElementById('withdrawable').textContent=fmt(ACCOUNT.balance)+'원'; // P1: 출금가능금액도 잔액과 동기화
   // 자립 곡선: 어디보자가 켜져 있던 회차만 기록(도움 횟수)
-  if(assistantOn){ const h=recordRound(helpCountThisRound); renderIndependence(h); helpCountThisRound=0; }
+  if(assistantOn){ lastRoundHelps=helpCountThisRound; const h=recordRound(helpCountThisRound); renderIndependence(h); helpCountThisRound=0; }
   else { renderIndependence(loadHistory()); }
 }
 
@@ -888,6 +908,34 @@ const REACTIONS = [
     step:null, coach:'celebrate', spot:null, text:'잘하셨어요! 오늘은 <span class="hl">세 번</span> 도와드렸는데, 다음번엔 <span class="hl">한 번만</span> 여쭤보셔도 될 것 같아요.' },
 ];
 const FALLBACK = { text:'어디를 도와드릴까요? <span class="hl">\'이게 뭐여\'</span>, <span class="hl">\'계좌번호가 뭐였더라\'</span>처럼 편하게 말씀하셔도 돼요.', step:null, coach:null, spot:null };
+/* 못 알아들은 발화 → 엉뚱한 안내 대신 되묻기 */
+const REASK = { id:'reask', text:'죄송해요, 잘 못 들었어요. <span class="hl">한 번만 더</span> 또박또박 말씀해 주시겠어요?', step:null, coach:null, spot:null };
+/* 같은 어려움을 반복하면(계속 헤매면) 더 구체적으로 짚어주는 2차 멘트 */
+const ESC_PREFIX='<span class="hl">아직 헷갈리시죠?</span> ';
+const ESCALATE = {
+  info:'계좌번호 칸은 화면 <span class="hl">가운데</span>에 있어요. 문자로 받은 번호를 그대로 하나씩 눌러보셔요.',
+  confuse:'숫자판에서 <span class="hl">5 → 0 → 0 → 0 → 0</span> 순서로 하나씩 눌러보시면 5만원이에요.',
+  mistake:'오른쪽 아래 <span class="hl">← 지우기</span> 버튼이에요. 한 번 누를 때마다 숫자가 하나씩 지워져요.',
+  anxious:'천천히 하셔도 괜찮아요. 화면의 <span class="hl">받는 분 이름</span>과 <span class="hl">금액</span>만 눈으로 확인해 보셔요.',
+  warning:'빨간 글씨는 경고가 아니라 <span class="hl">처음 보내는 계좌</span>라는 안내예요. 정보만 맞으면 화면 맨 아래 초록 <span class="hl">이체하기</span> 버튼을 누르셔도 돼요.'
+};
+const HELP_IDS = new Set(['info','confuse','mistake','anxious','warning']);
+let lastGuideId=null, sameStreak=0;
+function resolveEscalation(reaction){
+  const id=reaction.id;
+  if(HELP_IDS.has(id)){ if(id===lastGuideId) sameStreak++; else { lastGuideId=id; sameStreak=1; } }
+  else { lastGuideId=null; sameStreak=0; }
+  if(sameStreak>=2 && ESCALATE[id]) return Object.assign({}, reaction, { text:ESC_PREFIX+ESCALATE[id], escalated:true });
+  return reaction;
+}
+/* 완료 멘트: 이번 세션 실제 개입 횟수 반영 (완료 화면 진입 시 0으로 리셋되므로 직전 값 보관) */
+let lastRoundHelps=0;
+function doneText(){
+  const n = helpCountThisRound>0 ? helpCountThisRound : lastRoundHelps;
+  if(n<=0) return '다 끝내셨어요! 오늘은 <span class="hl">한 번도</span> 안 여쭤보고 혼자 하셨어요. 정말 잘하셨어요 👏';
+  if(n===1) return '다 끝내셨어요! 오늘은 우디가 <span class="hl">한 번</span> 도와드렸어요. 잘하셨어요 🎉';
+  return '다 끝내셨어요! 오늘은 우디가 <span class="hl">'+n+'번</span> 도와드렸어요. 다음엔 더 익숙해지실 거예요 🎉';
+}
 
 /* 혼잣말 예시 표현 (표준어 + 경상도 사투리). r=연결 유형, dia=사투리 표시.
    버튼을 누르면 handleUtterance→matchReaction으로 해당 유형의 코치마크가 자동 발동. */
@@ -938,9 +986,9 @@ function matchReaction(text){ const t=text.replace(/\s/g,''); for(const r of REA
 /* ═══════════ 의도 파악: LLM(실제 이해) + 규칙(폴백) ═══════════
    핵심: 정의하지 않은 혼잣말도 AI가 이해 → 규칙 기반 데모와의 결정적 차이.
    LLM=두뇌(분류·안내 문구), 화면 배치(코치마크 위치)는 유형별 템플릿으로 결정(안정). */
-const REACTION_BY_ID={}; REACTIONS.forEach(r=>REACTION_BY_ID[r.id]=r);
-const TYPE_TO_ID={'정보부족':'info','혼란':'confuse','실수':'mistake','불안':'anxious','완료':'done',
-  'info':'info','confuse':'confuse','mistake':'mistake','anxious':'anxious','done':'done'};
+const REACTION_BY_ID={}; REACTIONS.forEach(r=>REACTION_BY_ID[r.id]=r); REACTION_BY_ID['reask']=REASK;
+const TYPE_TO_ID={'정보부족':'info','혼란':'confuse','실수':'mistake','불안':'anxious','완료':'done','기타':'reask','기타(관련 없음)':'reask',
+  'info':'info','confuse':'confuse','mistake':'mistake','anxious':'anxious','done':'done','reask':'reask','other':'reask'};
 const ID_TO_KO={info:'정보부족',confuse:'혼란',mistake:'실수',anxious:'불안',warning:'불안(경고)',done:'완료'};
 
 /* ── AI 설정 (키는 이 브라우저 localStorage에만 저장, 서버 전송·저장소 하드코딩 없음) ── */
@@ -1003,9 +1051,10 @@ const INTENT_SYSTEM_PROMPT=
 "- 실수: 잘못 눌렀거나 지우고 싶음. 예) '아이고 잘못 눌렀네', '잘못 눌렀뿟다', '이거 우예 지우노'\n"+
 "- 불안: 맞는지 무섭고 걱정되거나 빨간 경고를 봄. 예) '이거 맞나 무섭네', '겁나서 몬하겠다', '와 빨갛노'\n"+
 "- 완료: 다 끝냈다고 안도/기뻐함. 예) '됐다 다 했어', '됐다 아이가', '보냈뿟다 이제'\n\n"+
+"위 5가지에 해당하지 않거나(예: 은행과 무관한 잡담) 무슨 말인지 불분명하면 type을 '기타'로 하고 guidance는 빈 문자열로 둔다. 억지로 분류하지 말 것.\n\n"+
 "[출력 형식] 반드시 아래 JSON 하나만 출력. 코드블록·설명 금지.\n"+
-'{"type":"정보부족|혼란|실수|불안|완료","guidance":"어르신께 드리는 1~2문장 안내. 존댓말, 쉽고 따뜻하게, 45자 이내","coach":"pulse|spotlight|arrow|soft|celebrate"}\n'+
-"coach 매핑: 정보부족=pulse, 혼란=spotlight, 실수=arrow, 불안=soft, 완료=celebrate.";
+'{"type":"정보부족|혼란|실수|불안|완료|기타","guidance":"어르신께 드리는 1~2문장 안내. 존댓말, 쉽고 따뜻하게, 45자 이내","coach":"pulse|spotlight|arrow|soft|celebrate"}\n'+
+"coach 매핑: 정보부족=pulse, 혼란=spotlight, 실수=arrow, 불안=soft, 완료=celebrate, 기타=none.";
 
 function parseIntentJson(raw){
   if(!raw) throw new Error('empty');
@@ -1055,8 +1104,16 @@ function verdictHTML(kind, id, extra){
   const ko=ID_TO_KO[id]||'안내';
   if(kind==='ai') return '<div class="verdict"><span class="chip">🧠 AI 판단</span> 유형 <b>'+ko+'</b>'+(extra?' · '+extra:'')+'</div>';
   if(kind==='fallback') return '<div class="verdict fallback"><span class="chip">⚠️ 규칙 폴백</span> AI 연결이 어려워 규칙으로 안내해요'+(id?' · <b>'+ko+'</b>':'')+'</div>';
+  if(kind==='reask') return '<div class="verdict fallback"><span class="chip">🤔 잘 못 알아들음</span> 엉뚱한 안내 대신 다시 여쭤봐요</div>';
+  if(kind==='nokey') return '<div class="verdict fallback"><span class="chip">🔑 AI 모드 대기</span> API 키를 넣으면 이런 말도 AI가 이해해요'+(id?' · 지금은 규칙 <b>'+ko+'</b>':'')+'</div>';
   return '<div class="verdict rule"><span class="chip">📋 규칙 매칭</span> 유형 <b>'+ko+'</b></div>';
 }
+
+/* ── 처리 파이프라인(4단계) 시각화 ── */
+function pipeLabel(useLlm){ const l=document.getElementById('pstep1lbl'); if(l) l.textContent=useLlm?'AI 이해·보정':'표현 매칭'; }
+function pipeState(states){ for(let i=0;i<4;i++){ const el=document.querySelector('.pstep[data-i="'+i+'"]'); if(el){ el.classList.remove('done','active'); if(states[i]) el.classList.add(states[i]); } } }
+function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
+function reducedMotion(){ return window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches; }
 
 let utterSeq=0;   // 늦게 도착한 LLM 응답이 최신 발화를 덮어쓰지 않도록
 async function handleUtterance(text){
@@ -1066,45 +1123,73 @@ async function handleUtterance(text){
     return;
   }
   const seq=++utterSeq, heard=document.getElementById('heard');
-  const useLlm=(intentMode==='llm' && !!aiKey());
-  heard.innerHTML='👂 <b>이렇게 들었어요</b><br><span class="quote">“'+esc(text)+'”</span>'
-    +(useLlm?'<div class="verdict"><span class="thinking"><i></i><i></i><i></i></span> 우디가 이해하는 중…</div>':'');
+  const useLlm=(intentMode==='llm' && !!aiKey()), noKeyLlm=(intentMode==='llm' && !aiKey());
+  stopSpeak(); clearCoach(); clearTimeout(guideTimer);   // 연속 발화: 이전 안내 깔끔히 정리
+  const heardBase='👂 <b>이렇게 들었어요</b><br><span class="quote">“'+esc(text)+'”</span>';
+  heard.innerHTML=heardBase+(useLlm?'<div class="verdict"><span class="thinking"><i></i><i></i><i></i></span> 우디가 이해하는 중…</div>':'');
+  const rm=reducedMotion();
+
+  // 1) 대기 표시(침묵 공백 없애기) + 파이프라인 시작
+  pipeLabel(useLlm);
+  showWaiting(useLlm);
+  pipeState(['done','active','','']);   // 음성 인식 완료 → 이해 단계
 
   let reaction, verdict;
   if(useLlm){
     try{
       const ai=await classifyIntent(text);
-      if(seq!==utterSeq) return;   // 그 사이 새 발화가 들어옴 → 폐기
-      reaction=buildReaction(ai.id, ai.guidance, text);
-      verdict=verdictHTML('ai', reaction.id);
+      if(seq!==utterSeq) return;
+      pipeState(['done','done','active','']); await sleep(rm?0:160); if(seq!==utterSeq) return;
+      if(ai.id==='reask'){ reaction=REASK; verdict=verdictHTML('reask'); }
+      else { reaction=buildReaction(ai.id, ai.guidance, text); verdict=verdictHTML('ai', reaction.id); }
     }catch(err){
       if(seq!==utterSeq) return;
-      const r=matchReaction(text); reaction=r||FALLBACK;
+      pipeState(['done','done','active','']); await sleep(rm?0:120); if(seq!==utterSeq) return;
+      const r=matchReaction(text); reaction=r||REASK;
       verdict=verdictHTML('fallback', r?reaction.id:null);
     }
   } else {
-    const r=matchReaction(text); reaction=r||FALLBACK;
-    verdict = r ? verdictHTML('rule', reaction.id) : '';
+    await sleep(rm?0:240); if(seq!==utterSeq) return;   // 표현 매칭도 4단계로 담백하게 보여줌
+    pipeState(['done','done','active','']);
+    const r=matchReaction(text); reaction=r||REASK;
+    verdict = noKeyLlm ? verdictHTML('nokey', r?reaction.id:null) : (r?verdictHTML('rule', reaction.id):verdictHTML('reask'));
+    await sleep(rm?0:140); if(seq!==utterSeq) return;
   }
-  heard.innerHTML='👂 <b>이렇게 들었어요</b><br><span class="quote">“'+esc(text)+'”</span>'+(verdict||'');
+
+  // 2) 반복 헤맴 → 더 자세한 2차 안내 / 완료 멘트 실제 개입 횟수 반영
+  reaction=resolveEscalation(reaction);
+  if(reaction.id==='done') reaction=Object.assign({}, reaction, { text:doneText() });
+
+  // 3) 화면 맥락 → 안내 생성 마무리
+  pipeState(['done','done','done','active']); await sleep(rm?0:150); if(seq!==utterSeq) return;
+  pipeState(['done','done','done','done']);
+  heard.innerHTML=heardBase+(verdict||'')+(reaction.escalated?'<div class="verdict" style="color:#c9772b;"><span class="chip" style="background:#fbeee0;color:#c9772b;">🔁 반복 감지</span> 같은 어려움 → 더 자세히 안내</div>':'');
 
   if(reaction.step!==null && reaction.step!==undefined && reaction.step!==curStep){
     goStep(reaction.step);
-    setTimeout(()=>showGuide(reaction), 360);
+    setTimeout(()=>{ if(seq===utterSeq) showGuide(reaction); }, 360);
   } else showGuide(reaction);
 }
 
 /* ═══════════ 안내: 말풍선 + 상황별 코치마크 + TTS ═══════════ */
 let guideTimer=null;
+/* 대기 표시: 응답 오기 전 우디가 "잠깐만요, 볼게요…" (침묵 공백 제거) */
+function showWaiting(useLlm){
+  const b=document.getElementById('bubble');
+  b.classList.add('on','waiting'); b.classList.remove('guiding');
+  document.getElementById('bubbleText').innerHTML = useLlm ? '잠깐만요, 지금 <span class="hl">화면을 볼게요</span>…' : '잠깐만요, <span class="hl">확인할게요</span>…';
+  if(useLlm) speak('잠깐만요, 지금 화면을 볼게요.');   // 실제 대기 시간이 있는 AI 모드만 음성
+}
 function showGuide(reaction){
   clearTimeout(guideTimer);
+  const b=document.getElementById('bubble');
+  b.classList.add('on','guiding'); b.classList.remove('waiting');
   document.getElementById('bubbleText').innerHTML=reaction.text;
-  document.getElementById('bubble').classList.add('on');
   setTimeout(()=>applyCoach(reaction), 70);   // 화면 전환/레이아웃 정착 후
   speak(stripTags(reaction.text));
-  guideTimer=setTimeout(clearGuide, 12000);
+  guideTimer=setTimeout(clearGuide, 13000);
 }
-function clearGuide(){ clearTimeout(guideTimer); document.getElementById('bubble').classList.remove('on'); clearCoach(); stopSpeak(); }
+function clearGuide(){ clearTimeout(guideTimer); const b=document.getElementById('bubble'); b.classList.remove('on','waiting','guiding'); clearCoach(); stopSpeak(); }
 function stripTags(h){ const d=document.createElement('div'); d.innerHTML=h; return d.textContent; }
 
 /* ── 감정 상태 → 코치마크 형태 자동 선택 ── */
@@ -1189,7 +1274,30 @@ function showCelebrate(){
 let koVoice=null;
 function pickVoice(){ const vs=speechSynthesis.getVoices(); koVoice=vs.find(v=>v.lang==='ko-KR')||vs.find(v=>v.lang&&v.lang.startsWith('ko'))||null; }
 if('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
-function speak(text){ if(!('speechSynthesis' in window))return; speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang='ko-KR'; u.rate=0.92; u.pitch=1.05; if(koVoice)u.voice=koVoice; const spk=document.getElementById('spkIcon'); u.onstart=()=>{spk.style.opacity='1';}; u.onend=()=>{spk.style.opacity='.4';}; speechSynthesis.speak(u); }
+/* 어르신 배려: 조금 더 천천히(0.88), 긴 문장은 자연스러운 지점에서 끊어 읽기 */
+function chunkForSpeech(text){
+  const t=String(text).replace(/\s+/g,' ').trim();
+  if(!t) return [];
+  let sents; try{ sents=t.split(/(?<=[.!?。…])\s+/); }catch(_){ sents=t.split(/([.!?。…])/).reduce((a,c,i)=>{ if(i%2){a[a.length-1]+=c;}else{a.push(c);} return a; },[]); }
+  const out=[];
+  sents.forEach(s=>{ s=s.trim(); if(!s) return;
+    if(s.length<=30){ out.push(s); return; }
+    let parts; try{ parts=s.split(/(?<=[,·、])\s*/); }catch(_){ parts=s.split(/[,·、]/); }
+    parts.forEach(p=>{ p=p.trim(); if(p) out.push(p); });
+  });
+  return out;
+}
+function speak(text){
+  if(!('speechSynthesis' in window))return; speechSynthesis.cancel();
+  const chunks=chunkForSpeech(text); if(!chunks.length)return;
+  const spk=document.getElementById('spkIcon');
+  chunks.forEach((c,i)=>{
+    const u=new SpeechSynthesisUtterance(c); u.lang='ko-KR'; u.rate=0.88; u.pitch=1.05; if(koVoice)u.voice=koVoice;
+    if(i===0) u.onstart=()=>{ spk.style.opacity='1'; };
+    if(i===chunks.length-1) u.onend=()=>{ spk.style.opacity='.4'; };
+    speechSynthesis.speak(u);
+  });
+}
 function stopSpeak(){ if('speechSynthesis' in window)speechSynthesis.cancel(); }
 
 /* ═══════════ 음성 인식 ═══════════ */
