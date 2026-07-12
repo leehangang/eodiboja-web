@@ -274,12 +274,18 @@
   .fab{position:absolute;right:16px;bottom:92px;z-index:55;width:58px;height:58px;border-radius:50%;background:var(--im-grad);display:flex;align-items:flex-end;justify-content:center;box-shadow:0 8px 24px rgba(0,199,169,.5);cursor:pointer;border:none;overflow:hidden;}
   .fab .fab-face{display:flex;align-items:flex-end;justify-content:center;height:100%;}
   .fab .fab-face img{height:47px;width:auto;display:block;margin-bottom:-2px;}
-  .fab .ring{position:absolute;inset:0;border-radius:50%;border:2px solid rgba(0,199,169,.65);animation:fabring 2s ease-out infinite;z-index:2;}
-  @keyframes fabring{0%{transform:scale(1);opacity:.7;}100%{transform:scale(1.7);opacity:0;}}
+  .fab .ring{position:absolute;inset:0;border-radius:50%;border:2.5px solid rgba(0,199,169,.7);animation:fabring 2.4s ease-out infinite;z-index:2;pointer-events:none;}
+  .fab .ring.r2{animation-delay:1.2s;}
+  @keyframes fabring{0%{transform:scale(1);opacity:.75;}100%{transform:scale(1.85);opacity:0;}}
   .fab.listening{background:linear-gradient(135deg,#ff6b6b,#e5484d);}
-  .fab.listening .ring{border-color:rgba(229,72,77,.6);}
-  .fab .fab-ear{position:absolute;top:-2px;right:-2px;width:23px;height:23px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2);z-index:3;}
-  .fab .fab-ear svg{width:14px;height:14px;color:var(--im-green-d);}
+  .fab.listening .ring{border-color:rgba(229,72,77,.65);animation-duration:1.3s;}
+  /* 마이크 배지 — '음성으로 말하는 버튼'임을 명확히 */
+  .fab .fab-mic{position:absolute;bottom:-2px;right:-2px;width:26px;height:26px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 7px rgba(0,0,0,.28);z-index:4;animation:micBadge 2.4s ease-in-out infinite;}
+  .fab .fab-mic svg{width:15px;height:15px;color:var(--im-green-d);}
+  @keyframes micBadge{0%,100%{box-shadow:0 2px 7px rgba(0,0,0,.28),0 0 0 0 rgba(0,199,169,.55);}50%{box-shadow:0 2px 7px rgba(0,0,0,.28),0 0 0 6px rgba(0,199,169,0);}}
+  .fab.listening .fab-mic{background:#e5484d;animation-duration:.9s;}
+  .fab.listening .fab-mic svg{color:#fff;}
+  @media(prefers-reduced-motion:reduce){ .fab .ring{display:none;} .fab .fab-mic{animation:none;} }
 
   .mic-badge{position:absolute;left:16px;bottom:104px;z-index:54;background:rgba(24,28,31,.85);color:#fff;font-size:12px;font-weight:700;border-radius:20px;padding:8px 12px;display:flex;align-items:center;gap:8px;backdrop-filter:blur(4px);transition:opacity .4s,transform .4s;cursor:pointer;}
   .mic-badge .mb-more{opacity:.7;font-size:11px;margin-left:1px;}
@@ -644,7 +650,7 @@
   <div class="toast" id="toast"></div>
   <div class="auto-stop" id="autoStop" onclick="stopAutoPlay()">■ 자동 시연 중 · 눌러서 중지</div>
   <div class="mic-badge" id="micBadge" onclick="openSheet()"><span class="mdot"></span><span id="micText">우디가 듣고 있어요 · 혼잣말도 괜찮아요</span><span class="mb-more">›</span></div>
-  <button class="fab" id="fab" onclick="toggleMic()"><span class="ring"></span><span class="fab-face" data-ic="woodi"></span><span class="fab-ear" data-ic="ear"></span></button>
+  <button class="fab" id="fab" onclick="toggleMic()" aria-label="음성으로 말하기"><span class="ring"></span><span class="ring r2"></span><span class="fab-face" data-ic="woodi"></span><span class="fab-mic" data-ic="mic"></span></button>
   <div class="bubble" id="bubble">
     <div class="gb-head"><span class="ava" data-ic="woodi"></span><span class="nm">어디보자 <span style="font-weight:600;color:var(--ink-3);font-size:11px;">· 우디</span><small>옆에서 알려드려요</small></span><span class="spk" id="spkIcon" data-ic="speaker"></span><span class="gb-lat" id="gbLat"></span></div>
     <div class="gb-pipe" id="gbPipe">
