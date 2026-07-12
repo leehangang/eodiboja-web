@@ -959,6 +959,9 @@ const REACTIONS = [
     step:4, coach:'soft', spot:'#warn-line', text:'그 빨간 글씨는 <span class="hl">\'이 계좌로 처음 보내신다\'</span>는 안내예요. 잘못된 게 아니에요. 받는 분과 금액이 맞으면 <span class="hl">안심하고</span> 진행하셔도 돼요.' },
   { id:'done', label:'됐다, 다 했어!', emoji:'🎉', keywords:['됐다','완료','다 했','다했','보냈','끝났','성공','했뿟','다 됐','다 끝'],
     step:null, coach:'celebrate', spot:null, text:'잘하셨어요! 오늘은 <span class="hl">세 번</span> 도와드렸는데, 다음번엔 <span class="hl">한 번만</span> 여쭤보셔도 될 것 같아요.' },
+  /* 방향상실: 작업 도중 목적/단계를 잊음 → 현재 작업을 다시 짚어줌(문구·spot은 buildRecall에서 동적 생성) */
+  { id:'recall', label:'내가 뭐 하려고 했지?', emoji:'🧭', keywords:['뭐였지','뭐 하려고','뭐하려고','뭐 하려던','하려고 했','하려던','뭐 하는 중','뭐하는 중','뭐 하고 있','뭐하고 있','내가 뭐','어디까지 했','어디까지 하','까먹','잊어버','생각이 안','뭐 하러 왔','뭐 할라 했','뭐 할라꼬','뭐 하다 말','이거 뭐였노','이라고 있','와 이라고'],
+    step:null, coach:'pulse', spot:null, text:'지금 하시던 일을 <span class="hl">다시 짚어</span> 드릴게요.' },
 ];
 const FALLBACK = { text:'어디를 도와드릴까요? <span class="hl">\'이게 뭐여\'</span>, <span class="hl">\'계좌번호가 뭐였더라\'</span>처럼 편하게 말씀하셔도 돼요.', step:null, coach:null, spot:null };
 /* 못 알아들은 발화 → 엉뚱한 안내 대신 되묻기 */
@@ -1013,6 +1016,9 @@ const SIM_UTTERANCES = [
   { q:'됐다 아이가', r:'done', dia:true },
   { q:'다 했뿟다', r:'done', dia:true },
   { q:'보냈뿟다 이제', r:'done', dia:true },
+  { q:'내가 뭐 하려고 했지', r:'recall' },
+  { q:'뭐 하는 중이었노', r:'recall', dia:true },
+  { q:'와 이라고 있노', r:'recall', dia:true },
 ];
 
 function renderSim(){
@@ -1041,9 +1047,9 @@ function matchReaction(text){ const t=text.replace(/\s/g,''); for(const r of REA
    핵심: 정의하지 않은 혼잣말도 AI가 이해 → 규칙 기반 데모와의 결정적 차이.
    LLM=두뇌(분류·안내 문구), 화면 배치(코치마크 위치)는 유형별 템플릿으로 결정(안정). */
 const REACTION_BY_ID={}; REACTIONS.forEach(r=>REACTION_BY_ID[r.id]=r); REACTION_BY_ID['reask']=REASK;
-const TYPE_TO_ID={'정보부족':'info','혼란':'confuse','실수':'mistake','불안':'anxious','완료':'done','기타':'reask','기타(관련 없음)':'reask',
-  'info':'info','confuse':'confuse','mistake':'mistake','anxious':'anxious','done':'done','reask':'reask','other':'reask'};
-const ID_TO_KO={info:'정보부족',confuse:'혼란',mistake:'실수',anxious:'불안',warning:'불안(경고)',done:'완료'};
+const TYPE_TO_ID={'정보부족':'info','혼란':'confuse','실수':'mistake','불안':'anxious','완료':'done','방향상실':'recall','기타':'reask','기타(관련 없음)':'reask',
+  'info':'info','confuse':'confuse','mistake':'mistake','anxious':'anxious','done':'done','recall':'recall','reask':'reask','other':'reask'};
+const ID_TO_KO={info:'정보부족',confuse:'혼란',mistake:'실수',anxious:'불안',warning:'불안(경고)',done:'완료',recall:'방향상실'};
 
 /* ── AI 설정 (키는 이 브라우저 localStorage에만 저장, 서버 전송·저장소 하드코딩 없음) ── */
 const LS_AI_KEY='eodiboja_ai_key', LS_AI_PROV='eodiboja_ai_prov', LS_AI_MODE='eodiboja_ai_mode';
@@ -1104,12 +1110,13 @@ const INTENT_SYSTEM_PROMPT=
 "- 혼란: 화면 자체가 이해 안 됨. 예) '이게 뭐여', '이기 뭐꼬', '당최 뭐가 뭔지', '어 이거 참 뭐라 해야 하나'\n"+
 "- 실수: 잘못 눌렀거나 지우고 싶음. 예) '아이고 잘못 눌렀네', '잘못 눌렀뿟다', '이거 우예 지우노'\n"+
 "- 불안: 맞는지 무섭고 걱정되거나 빨간 경고를 봄. 예) '이거 맞나 무섭네', '겁나서 몬하겠다', '와 빨갛노'\n"+
-"- 완료: 다 끝냈다고 안도/기뻐함. 예) '됐다 다 했어', '됐다 아이가', '보냈뿟다 이제'\n\n"+
-"위 5가지에 해당하지 않거나(예: 은행과 무관한 잡담) 무슨 말인지 불분명하면 type을 '기타'로 하고 guidance는 빈 문자열로 둔다. 억지로 분류하지 말 것.\n\n"+
+"- 완료: 다 끝냈다고 안도/기뻐함. 예) '됐다 다 했어', '됐다 아이가', '보냈뿟다 이제'\n"+
+"- 방향상실: 작업 도중 목적이나 현재 단계를 잊어 되묻는 경우. 예) '내가 뭐 하려고 했지', '이거 뭐였지', '뭐 하는 중이었노', '와 이라고 있노' (guidance는 빈 문자열로 두라. 앱이 현재 작업을 직접 짚어줌)\n\n"+
+"위 6가지에 해당하지 않거나(예: 은행과 무관한 잡담) 무슨 말인지 불분명하면 type을 '기타'로 하고 guidance는 빈 문자열로 둔다. 억지로 분류하지 말 것.\n\n"+
 "유형이 확실하면 confidence를 \"high\", 여러 유형이 가능하거나 발화가 불분명해 애매하면 \"low\"로 표기하라. (억지로 high로 하지 말 것)\n\n"+
 "[출력 형식] 반드시 아래 JSON 하나만 출력. 코드블록·설명 금지.\n"+
-'{"type":"정보부족|혼란|실수|불안|완료|기타","guidance":"어르신께 드리는 1~2문장 안내. 존댓말, 쉽고 따뜻하게, 45자 이내","coach":"pulse|spotlight|arrow|soft|celebrate","confidence":"high|low"}\n'+
-"coach 매핑: 정보부족=pulse, 혼란=spotlight, 실수=arrow, 불안=soft, 완료=celebrate, 기타=none.";
+'{"type":"정보부족|혼란|실수|불안|완료|방향상실|기타","guidance":"어르신께 드리는 1~2문장 안내. 존댓말, 쉽고 따뜻하게, 45자 이내","coach":"pulse|spotlight|arrow|soft|celebrate","confidence":"high|low"}\n'+
+"coach 매핑: 정보부족=pulse, 혼란=spotlight, 실수=arrow, 불안=soft, 완료=celebrate, 방향상실=pulse, 기타=none.";
 
 function parseIntentJson(raw){
   if(!raw) throw new Error('empty');
@@ -1154,6 +1161,25 @@ function buildReaction(id, guidance, srcText){
   if(id==='anxious' && /빨간|빨강|붉|경고|일\s*년|1\s*년|이체내역/.test(srcText) && REACTION_BY_ID['warning']) base=REACTION_BY_ID['warning'];  // 불안 세부: 빨간 경고면 경고 안내
   const text=guidance ? esc(guidance) : base.text;
   return { id:base.id, step:base.step, coach:base.coach, spot:base.spot, tip:base.tip, text };
+}
+
+/* ═══════════ 맥락 상기(context recall) — 작업 도중 목적을 잊을 때 현재 작업을 다시 짚어줌 ═══════════ */
+const RECALL_BY_STEP={
+  0:{ doing:null,                              spot:'.btn-go' },
+  1:{ doing:'<span class="hl">받는 분</span>을 고르는', spot:null },
+  2:{ doing:'<span class="hl">계좌번호</span>를 넣는',   spot:'#acct-field' },
+  3:{ doing:'<span class="hl">금액</span>을 넣는',       spot:'#screen-amount .keypad' },
+  4:{ doing:'<span class="hl">맞는지 확인</span>하는',   spot:'.cf-title,.detail' },
+  5:{ doing:null,                              spot:null }
+};
+function buildRecall(){
+  const step=curStep, info=RECALL_BY_STEP[step]||RECALL_BY_STEP[3];
+  const to=RECIPIENT.relation+' '+RECIPIENT.name+' 님', amt=fmt(amount||STORY_AMOUNT)+'원';
+  let text;
+  if(step===0)      text='아직 <span class="hl">시작 전</span>이에요. '+to+'께 보내시려면 파란 <span class="hl">이체</span> 버튼을 누르면 시작돼요.';
+  else if(step===5) text=to+'께 '+amt+'을 <span class="hl">이미 다 보내셨어요</span>. 잘하셨어요! 🎉';
+  else              text=to+'께 <span class="hl">'+amt+'</span> 보내는 중이셨어요. 지금은 '+info.doing+' 단계예요. 천천히 <span class="hl">이어서</span> 하셔요.';
+  return { id:'recall', step:null, coach:'pulse', spot:info.spot, text };
 }
 /* ═══════════ 확신도 기반 확인(confirmation) — 오인식 방지 ═══════════
    애매하게 인식되면 바로 안내하지 않고 짧게 확인 후 진행. 확실하면 확인 없이 바로. */
@@ -1294,6 +1320,8 @@ async function handleUtterance(text){
     await sleep(rm?0:80); if(seq!==utterSeq) return;
   }
 
+  // 방향상실 → 현재 작업·단계·이체정보를 조합해 상기 문구 동적 생성 (LLM 문구 대신 실제 앱 상태)
+  if(reaction.id==='recall') reaction=buildRecall();
   // 반복 헤맴 → 더 자세한 2차 안내 / 완료 멘트 실제 개입 횟수 반영
   reaction=resolveEscalation(reaction);
   if(reaction.id==='done') reaction=Object.assign({}, reaction, { text:doneText() });
