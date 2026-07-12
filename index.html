@@ -1274,7 +1274,8 @@ async function handleUtterance(text){
   if(pendingConfirm){
     if(isNegate(text)){ document.getElementById('heard').innerHTML='👂 <b>이렇게 들었어요</b><br><span class="quote">“'+esc(text)+'”</span>'; answerConfirm(false); return; }
     if(isAffirm(text)){ document.getElementById('heard').innerHTML='👂 <b>이렇게 들었어요</b><br><span class="quote">“'+esc(text)+'”</span>'; answerConfirm(true); return; }
-    pendingConfirm=null; clearTimeout(confirmTimer);   // 새로운 발화 → 확인 취소하고 정상 처리
+    if(isFillerOnly(text)) return;                     // "음"·"어" 같은 망설임 → 확인 유지(무시)
+    pendingConfirm=null; clearTimeout(confirmTimer);   // 그 외 실제 발화 → 확인 취소하고 정상 처리
   }
   const seq=++utterSeq, heard=document.getElementById('heard'), t0=performance.now();
   const hasKey=!!aiKey();
@@ -1377,7 +1378,7 @@ function showGuide(reaction){
   speak(stripTags(reaction.text));
   guideTimer=setTimeout(clearGuide, 13000);
 }
-function clearGuide(){ clearTimeout(guideTimer); const b=document.getElementById('bubble'); b.classList.remove('on','waiting','guiding'); document.getElementById('device').classList.remove('bubble-open'); clearCoach(); stopSpeak(); }
+function clearGuide(){ clearTimeout(guideTimer); const b=document.getElementById('bubble'); b.classList.remove('on','waiting','guiding'); document.getElementById('device').classList.remove('bubble-open'); pendingConfirm=null; clearTimeout(confirmTimer); clearCoach(); stopSpeak(); }
 function stripTags(h){ const d=document.createElement('div'); d.innerHTML=h; return d.textContent; }
 
 /* ── 감정 상태 → 코치마크 형태 자동 선택 ── */
@@ -1512,7 +1513,8 @@ function showBargeNote(){
 function bargeIn(){
   if(!speaking) return false;
   stopSpeak();                 // 재생 중 TTS 즉시 취소
-  clearTimeout(guideTimer);    // 자동 닫힘 타이머도 정리(곧 새 발화가 처리됨)
+  clearTimeout(guideTimer);    // 곧 새 발화가 처리되면 showGuide가 타이머를 다시 세움
+  guideTimer=setTimeout(clearGuide, 8000);   // 후속 발화가 안 오면 말풍선 자동 정리(고아 방지)
   showBargeNote();             // 🔇 안내를 멈추고 듣고 있어요
   return true;
 }
