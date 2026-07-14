@@ -1522,14 +1522,16 @@ function chunkForSpeech(text){
   return out;
 }
 let speaking=false;   // 우디가 TTS로 안내를 재생 중인지 (barge-in 판단용)
-let lastSpoken='';    // 우디가 방금 말한 내용(정규화) — 폰 스피커 소리를 마이크가 되받는 에코 판별
+let lastSpoken='', echoUntil=0, ttsCancelled=false;   // 에코 판별용: 발화 내용 + 발화 직후 창(꼬리 에코)
 function normSpeech(s){ return String(s).replace(/[^가-힣0-9]/g,''); }
-/* 인식 결과가 우디 발화의 일부(4자 이상 연속)면 에코로 간주 → 무시. 짧은 발화(사용자)는 통과 */
+/* 인식 결과가 우디 발화의 일부(4자 이상 연속)면 에코로 간주 → 무시.
+   말하는 중 + 말 끝난 직후 창(echoUntil) 안에서만 판정 → 우디 목소리가 마이크로 되먹임되어 반복되는 것 차단. */
 function isEcho(text){
-  if(!speaking || !lastSpoken) return false;
+  if(!lastSpoken) return false;
+  if(!speaking && performance.now()>=echoUntil) return false;   // 발화 중이거나 직후 창 안에서만
   const t=normSpeech(text); if(t.length<4) return false;
-  if(lastSpoken.indexOf(t)>=0) return true;
-  for(let i=0;i+4<=t.length;i++){ if(lastSpoken.indexOf(t.substr(i,4))>=0) return true; }
+  if(lastSpoken.indexOf(t)>=0) return true;                                   // 짧은 발화 통째 포함 → 에코
+  for(let i=0;i+6<=t.length;i++){ if(lastSpoken.indexOf(t.substr(i,6))>=0) return true; }  // 6자 연속 겹침 → 에코
   return false;
 }
 /* 소음·중복 인식 방지 게이트 — 미세 소음(초단문)·같은 말 연속·처리 직후 재발화를 걸러 화면 깜빡임 방지.
@@ -1563,18 +1565,21 @@ function worthReactingAny(cands){
   return arr.some(c=>normSpeech(c).length>=5);
 }
 function speak(text){
-  if(!('speechSynthesis' in window))return; speechSynthesis.cancel();
+  if(!('speechSynthesis' in window))return; ttsCancelled=false; speechSynthesis.cancel();
   const chunks=chunkForSpeech(text); if(!chunks.length)return;
   const spk=document.getElementById('spkIcon');
-  speaking=true; lastSpoken=normSpeech(text);   // 에코 판별용 보관
+  speaking=true; lastSpoken=normSpeech(text); echoUntil=performance.now()+600;   // 에코 판별용 보관
   chunks.forEach((c,i)=>{
     const u=new SpeechSynthesisUtterance(c); u.lang='ko-KR'; u.rate=0.88; u.pitch=1.05; if(koVoice)u.voice=koVoice;
     if(i===0) u.onstart=()=>{ spk.style.opacity='1'; speaking=true; };
-    if(i===chunks.length-1){ u.onend=()=>{ spk.style.opacity='.4'; speaking=false; }; u.onerror=()=>{ speaking=false; }; }
+    if(i===chunks.length-1){
+      u.onend=()=>{ spk.style.opacity='.4'; speaking=false; if(!ttsCancelled) echoUntil=performance.now()+1600; };  // 자연 종료 → 꼬리 에코 1.6초 억제
+      u.onerror=()=>{ speaking=false; };
+    }
     speechSynthesis.speak(u);
   });
 }
-function stopSpeak(){ if('speechSynthesis' in window)speechSynthesis.cancel(); speaking=false; }
+function stopSpeak(){ ttsCancelled=true; if('speechSynthesis' in window)speechSynthesis.cancel(); speaking=false; }   // 사용자 개입(바지인 등)으로 끊긴 경우 → 에코 창 연장 안 함
 
 /* ═══════════ Barge-in (끼어들기) — 고령자 음성 UX 핵심 ═══════════
    안내 음성 중 사용자가 '실제로' 말하면 즉시 멈추고 듣기. 짧은 추임새("어","그래")는 무시. */
