@@ -1523,7 +1523,7 @@ function isEcho(text){
 }
 /* 소음·중복 인식 방지 게이트 — 미세 소음(초단문)·같은 말 연속·처리 직후 재발화를 걸러 화면 깜빡임 방지.
    (확인 대기 중엔 짧은 '응/아니'도 받아야 하므로 완화. 시뮬 버튼은 이 게이트를 거치지 않음) */
-let lastHeard='', lastHeardAt=0, recogCooldownUntil=0;
+let lastHeard='', lastHeardAt=0, recogCooldownUntil=0, bargeCooldownUntil=0;
 function shouldProcess(text){
   const t=String(text).trim(); if(!t) return false;
   const now=performance.now();
@@ -1532,8 +1532,14 @@ function shouldProcess(text){
     if(now < recogCooldownUntil) return false;           // 직전 처리 후 쿨다운(깜빡임 방지)
   }
   if(t===lastHeard && (now-lastHeardAt)<1500) return false;  // 같은 말 연속 → 중복 무시
-  lastHeard=t; lastHeardAt=now; recogCooldownUntil=now+650;
+  lastHeard=t; lastHeardAt=now; recogCooldownUntil=now+1000;
   return true;
+}
+/* 반응할 가치가 있는 발화인가? 알려진 표현은 항상 반응, 매칭 안 되면(=되묻기 후보)
+   충분히 길 때만 반응 → 매번 다른 짧은 소음이 되묻기로 깜빡이는 것을 차단. (확인 대기 땐 이 검사 우회) */
+function worthReacting(text){
+  if(matchReaction(text)) return true;
+  return normSpeech(text).length>=5;
 }
 function speak(text){
   if(!('speechSynthesis' in window))return; speechSynthesis.cancel();
@@ -1607,17 +1613,25 @@ function initRecog(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR)return null;
   const r=new SR(); r.lang='ko-KR'; r.continuous=true; r.interimResults=true;
   r.onresult=(e)=>{
-    let f='', interim='';
+    let f='', interim='', conf=-1;
     for(let i=e.resultIndex;i<e.results.length;i++){
       const res=e.results[i];
-      if(res.isFinal) f+=res[0].transcript; else interim+=res[0].transcript;
+      if(res.isFinal){ f+=res[0].transcript; if(typeof res[0].confidence==='number') conf=res[0].confidence; }
+      else interim+=res[0].transcript;
     }
     const live=(f||interim).trim();
-    if(isEcho(live)) return;   // 우디 TTS를 마이크가 되받은 에코 → 무시(오인식·페이지 튐 방지)
-    // barge-in: 안내 재생 중 '실제 발화'(추임새 아님)가 들리면 즉시 멈춤. 초단문 소음은 트리거 안 함
-    if(speaking && live && !isFillerOnly(live) && normSpeech(live).length>=2) bargeIn();
-    const ff=f.trim();
-    if(ff && !isEcho(ff) && shouldProcess(ff)) handleUtterance(ff);   // 소음·중복 게이트 통과분만 처리
+    if(isEcho(live)) return;   // 우디 TTS를 마이크가 되받은 에코 → 무시
+    const now=performance.now();
+    // barge-in: 안내 재생 중 실제 발화만. 3자 미만 소음·연타는 트리거 안 함(쿨다운)
+    if(speaking && !isFillerOnly(live) && normSpeech(live).length>=3 && now>bargeCooldownUntil){
+      bargeIn(); bargeCooldownUntil=now+900;
+    }
+    const ff=f.trim(); if(!ff || isEcho(ff)) return;
+    if(!pendingConfirm){                                   // 확인 답변("응/아니")은 아래 필터 우회
+      if(conf>=0 && conf<0.35) return;                     // 신뢰도 매우 낮음(소음) → 무시(제공될 때만)
+      if(!worthReacting(ff)) return;                       // 매칭 안 되는 짧은 소음 → 무시
+    }
+    if(shouldProcess(ff)) handleUtterance(ff);             // 초단문·중복·쿨다운 게이트
   };
   r.onerror=(e)=>{ if(e.error==='not-allowed'||e.error==='service-not-allowed'){ setMic(false); document.getElementById('micHint').innerHTML='⚠️ 마이크 권한이 거부됐어요. 아래 <b>혼잣말 버튼</b>으로 체험해 보세요.'; } };
   r.onend=()=>{ if(listening){ try{r.start();}catch(_){} } };
