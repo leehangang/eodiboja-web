@@ -435,6 +435,7 @@
   .heard .verdict.rule .chip,.heard .verdict.light .chip{background:var(--im-mint-bg);color:var(--im-green-d);}
   .heard .verdict.fallback .chip{background:#fbeee0;color:#c9772b;}
   .heard .verdict .lat{display:inline-block;background:#0f172a;color:#fff;border-radius:6px;padding:1px 6px;font-size:11px;font-weight:800;margin-left:4px;letter-spacing:0;}
+  .heard .cands{margin-top:5px;font-size:11px;color:var(--ink-3);line-height:1.5;}
   @media(prefers-reduced-motion:reduce){ .heard .thinking i{animation:none;opacity:.7;} }
   /* 응답 시간(레이턴시) 배지 — 말풍선 헤더 */
   .bubble .gb-lat{margin-left:6px;flex:0 0 auto;background:#0f172a;color:#fff;font-size:11px;font-weight:800;border-radius:8px;padding:2px 7px;white-space:nowrap;opacity:0;transition:opacity .2s;}
@@ -1108,6 +1109,7 @@ const INTENT_SYSTEM_PROMPT=
 "- 거래가 맞다고 보증하지 않는다. 최종 판단은 사용자에게 맡긴다.\n"+
 "- 불안해하면 안심시키되, 받는 분·금액이 맞는지는 '직접 확인'하셔야 함을 분명히 한다.\n"+
 "- 계좌번호·비밀번호 등 개인정보를 지어내거나 대신 입력하라고 하지 않는다.\n\n"+
+"입력이 여러 개의 '음성 인식 후보'로 주어질 수 있다(1순위가 틀릴 수 있음, 특히 사투리·웅얼거림). 그럴 땐 현재 화면 맥락에 가장 자연스러운 후보를 골라 판단하라.\n\n"+
 "[유형과 예시 — 경상도 사투리도 이해할 것]\n"+
 "- 정보부족: 무엇을/어디에 넣을지 몰라 묻는 경우. 예) '계좌번호가 뭐였더라', '번호가 어데 있노', '우예 넣노'\n"+
 "- 혼란: 화면 자체가 이해 안 됨. 예) '이게 뭐여', '이기 뭐꼬', '당최 뭐가 뭔지', '어 이거 참 뭐라 해야 하나'\n"+
@@ -1128,10 +1130,14 @@ function parseIntentJson(raw){
   if(a<0||b<0) throw new Error('no-json');
   return JSON.parse(s.slice(a,b+1));
 }
-async function classifyIntent(text){
+async function classifyIntent(cands){
   const prov=aiProvider(), cfg=AI_PROVIDERS[prov], key=aiKey();
   if(!key) throw new Error('no-key');
-  const stepName=STEP_NAMES[curStep]||'', user='현재 화면 단계: '+(curStep+1)+'단계('+stepName+')\n어르신 혼잣말: "'+text+'"\n\n유형과 안내를 JSON으로만 답하세요.';
+  const arr=(Array.isArray(cands)?cands:[cands]).map(c=>String(c||'').trim()).filter(Boolean);
+  const stepName=STEP_NAMES[curStep]||'';
+  const user = (arr.length>1)
+    ? '현재 화면 단계: '+(curStep+1)+'단계('+stepName+')\n음성 인식 후보(1번이 1순위이나 틀릴 수 있음):\n'+arr.slice(0,5).map((c,i)=>(i+1)+') '+c).join('\n')+'\n\n이 후보들 중 이 상황에서 어르신이 했을 법한 말을 골라(또는 조합해) 유형과 안내를 JSON으로만 답하세요.'
+    : '현재 화면 단계: '+(curStep+1)+'단계('+stepName+')\n어르신 혼잣말: "'+(arr[0]||'')+'"\n\n유형과 안내를 JSON으로만 답하세요.';
   const ctrl=new AbortController(), to=setTimeout(()=>ctrl.abort(),8000);
   try{
     let res, out;
@@ -1302,7 +1308,7 @@ function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
 function reducedMotion(){ return window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches; }
 
 let utterSeq=0;   // 늦게 도착한 LLM 응답이 최신 발화를 덮어쓰지 않도록
-async function handleUtterance(text){
+async function handleUtterance(text, cands){
   if(!assistantOn){   // 어디보자 꺼짐: 아무 안내도 없는 '그냥 은행 앱'
     document.getElementById('heard').innerHTML='🔇 <b>어디보자가 꺼져 있어요</b> — 혼잣말을 해도 아무 안내가 없어요.<br><span class="quote">“'+esc(text)+'”</span>';
     clearGuide();
@@ -1315,17 +1321,22 @@ async function handleUtterance(text){
     if(isFillerOnly(text)) return;                     // "음"·"어" 같은 망설임 → 확인 유지(무시)
     pendingConfirm=null; clearTimeout(confirmTimer);   // 그 외 실제 발화 → 확인 취소하고 정상 처리
   }
+  cands = (cands && cands.length) ? cands : [text];      // 인식 후보(마이크) 또는 [정답 텍스트](시뮬 버튼)
   const seq=++utterSeq, heard=document.getElementById('heard'), t0=performance.now();
   const hasKey=!!aiKey();
   stopSpeak(); clearCoach(); clearTimeout(guideTimer);   // 연속 발화: 이전 안내 깔끔히 정리
-  const heardBase='👂 <b>이렇게 들었어요</b><br><span class="quote">“'+esc(text)+'”</span>';
+  const heardBase='👂 <b>이렇게 들었어요</b><br><span class="quote">“'+esc(text)+'”</span>'
+    +(cands.length>1?'<div class="cands">🎧 인식 후보 '+cands.length+'개: '+cands.slice(0,4).map(c=>esc(c)).join(' · ')+'</div>':'');
   const rm=reducedMotion();
 
-  /* ── 2단(2-tier) 라우팅: 자주 나오는 표현은 경량(규칙)으로 즉시, 애매한 발화만 LLM ── */
-  const r0=matchReaction(text);                          // 1차: 경량 규칙
-  const goLlm=(intentMode==='llm' && hasKey && !r0);     // 애매한 발화만 LLM 호출(2차)
+  /* ── 2단(2-tier) 라우팅 + 후보 보정: 후보 여러 개로 규칙 매칭 시도(사투리·오인식 복원) ── */
+  const rmatch=matchAnyCandidate(cands);                 // 1차: 경량 규칙(후보 전부 시도)
+  const r0=rmatch?rmatch.reaction:null;
+  const matchedText=rmatch?rmatch.text:text;             // 매칭된 후보(없으면 1순위)
+  const goLlm=(intentMode==='llm' && hasKey && !r0);     // 어떤 후보도 규칙 매칭 안 되면 LLM(2차)
   const noKeyLlm=(intentMode==='llm' && !hasKey);
   const tier = goLlm ? 'llm' : 'light';
+  const matchNote=(r0 && matchedText!==text) ? '<div class="verdict light"><span class="chip">🎯 후보 보정</span> “'+esc(matchedText)+'”로 이해</div>' : '';
 
   heard.innerHTML=heardBase+(goLlm?'<div class="verdict"><span class="thinking"><i></i><i></i><i></i></span> 규칙으로 애매 → <b>AI 정밀 분석</b> 중…</div>':'');
   pipeLabel(tier);
@@ -1336,7 +1347,7 @@ async function handleUtterance(text){
   let reaction, verdict, latencyMs, confidence='high';
   if(goLlm){
     try{
-      const ai=await classifyIntent(text);
+      const ai=await classifyIntent(cands);              // 후보 전부 넘겨 LLM이 맥락에 맞는 걸 고르게
       latencyMs=performance.now()-t0;                    // 인식→분류(LLM 왕복)까지 실측
       if(seq!==utterSeq) return;
       pipeState(['done','done','active','']); await sleep(rm?0:150); if(seq!==utterSeq) return;
@@ -1346,14 +1357,14 @@ async function handleUtterance(text){
       latencyMs=performance.now()-t0;
       if(seq!==utterSeq) return;
       pipeState(['done','done','active','']); await sleep(rm?0:120); if(seq!==utterSeq) return;
-      const r=matchReaction(text); reaction=r||REASK;
+      const r=matchAnyCandidate(cands); reaction=r?r.reaction:REASK;   // 폴백도 후보 전부로 매칭
       verdict=verdictHTML({kind:'fallback',id:r?reaction.id:null,ms:latencyMs});
     }
   } else {
     latencyMs=performance.now()-t0;                       // 경량 경로: 규칙 매칭 실측(수 ms)
     await sleep(rm?0:90); if(seq!==utterSeq) return;       // 경량은 빠르게 4단계 통과
     pipeState(['done','done','active','']);
-    const assess = r0 ? ruleAssess(text) : {level:'none', candidate:null};   // 확신도(키워드 다중 유형=애매)
+    const assess = r0 ? ruleAssess(matchedText) : {level:'none', candidate:null};   // 확신도(매칭된 후보로 판정)
     if(assess.level==='low' && assess.candidate){ reaction=assess.candidate; confidence='low'; }  // 애매 → 가장 구체적 유형으로 '확인'
     else reaction=r0||REASK;
     if(noKeyLlm) verdict=verdictHTML({kind:'nokey',id:r0?reaction.id:null,ms:latencyMs});
@@ -1382,7 +1393,7 @@ async function handleUtterance(text){
   // 인식 실패(되묻기)가 2회 이상 반복될 때만 이중 입력(말/터치) 안내 (매번 X → 잔소리 방지)
   if(reaction.id==='reask'){ if(++reaskStreak>=2) reaction=Object.assign({}, reaction, { text:reaction.text+DUAL_INPUT_HINT }); }
   else reaskStreak=0;
-  heard.innerHTML=heardBase+(verdict||'')+(reaction.escalated?'<div class="verdict" style="color:#c9772b;"><span class="chip" style="background:#fbeee0;color:#c9772b;">🔁 반복 감지</span> 같은 어려움 → 더 자세히 안내</div>':'')+(reaskStreak>=2?'<div class="verdict" style="color:#2b62c9;"><span class="chip" style="background:#eef4ff;color:#2b62c9;">🖐 이중 입력</span> 인식이 반복 실패 → 직접 터치 안내</div>':'');
+  heard.innerHTML=heardBase+(matchNote||'')+(verdict||'')+(reaction.escalated?'<div class="verdict" style="color:#c9772b;"><span class="chip" style="background:#fbeee0;color:#c9772b;">🔁 반복 감지</span> 같은 어려움 → 더 자세히 안내</div>':'')+(reaskStreak>=2?'<div class="verdict" style="color:#2b62c9;"><span class="chip" style="background:#eef4ff;color:#2b62c9;">🖐 이중 입력</span> 인식이 반복 실패 → 직접 터치 안내</div>':'');
 
   showGuide(reaction);   // 화면 이동 없음 — 지금 보고 있는 화면 그대로 코치마크
 }
@@ -1541,6 +1552,16 @@ function worthReacting(text){
   if(matchReaction(text)) return true;
   return normSpeech(text).length>=5;
 }
+/* 여러 인식 후보 중 규칙에 매칭되는 첫 후보 반환(사투리·오인식 보정) */
+function matchAnyCandidate(cands){
+  for(const c of (cands||[])){ const r=matchReaction(c); if(r) return {reaction:r, text:c}; }
+  return null;
+}
+function worthReactingAny(cands){
+  const arr=cands||[];
+  if(arr.some(c=>matchReaction(c))) return true;
+  return arr.some(c=>normSpeech(c).length>=5);
+}
 function speak(text){
   if(!('speechSynthesis' in window))return; speechSynthesis.cancel();
   const chunks=chunkForSpeech(text); if(!chunks.length)return;
@@ -1612,12 +1633,15 @@ let recog=null, listening=false, badgeTimer=null;
 function initRecog(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR)return null;
   const r=new SR(); r.lang='ko-KR'; r.continuous=true; r.interimResults=true;
+  r.maxAlternatives=4;   // 1순위만 말고 인식 후보 여러 개 → 사투리·웅얼거림 보정에 활용
   r.onresult=(e)=>{
-    let f='', interim='', conf=-1;
+    let f='', interim='', conf=-1, cands=[];
     for(let i=e.resultIndex;i<e.results.length;i++){
       const res=e.results[i];
-      if(res.isFinal){ f+=res[0].transcript; if(typeof res[0].confidence==='number') conf=res[0].confidence; }
-      else interim+=res[0].transcript;
+      if(res.isFinal){
+        f+=res[0].transcript; if(typeof res[0].confidence==='number') conf=res[0].confidence;
+        for(let a=0;a<res.length && a<6;a++){ const tx=(res[a].transcript||'').trim(); if(tx && cands.indexOf(tx)<0) cands.push(tx); }
+      } else interim+=res[0].transcript;
     }
     const live=(f||interim).trim();
     if(isEcho(live)) return;   // 우디 TTS를 마이크가 되받은 에코 → 무시
@@ -1627,11 +1651,13 @@ function initRecog(){
       bargeIn(); bargeCooldownUntil=now+900;
     }
     const ff=f.trim(); if(!ff || isEcho(ff)) return;
+    if(cands.indexOf(ff)<0) cands.unshift(ff);             // 1순위(누적) 맨 앞 보장
     if(!pendingConfirm){                                   // 확인 답변("응/아니")은 아래 필터 우회
-      if(conf>=0 && conf<0.35) return;                     // 신뢰도 매우 낮음(소음) → 무시(제공될 때만)
-      if(!worthReacting(ff)) return;                       // 매칭 안 되는 짧은 소음 → 무시
+      const anyMatch=cands.some(c=>matchReaction(c));
+      if(!anyMatch && conf>=0 && conf<0.35) return;        // 매칭도 없고 신뢰도도 낮음(소음) → 무시
+      if(!worthReactingAny(cands)) return;                 // 어떤 후보도 매칭 안 되고 다 짧음 → 소음
     }
-    if(shouldProcess(ff)) handleUtterance(ff);             // 초단문·중복·쿨다운 게이트
+    if(shouldProcess(ff)) handleUtterance(ff, cands);      // 초단문·중복·쿨다운 게이트 통과분만, 후보 함께 전달
   };
   r.onerror=(e)=>{ if(e.error==='not-allowed'||e.error==='service-not-allowed'){ setMic(false); document.getElementById('micHint').innerHTML='⚠️ 마이크 권한이 거부됐어요. 아래 <b>혼잣말 버튼</b>으로 체험해 보세요.'; } };
   r.onend=()=>{ if(listening){ try{r.start();}catch(_){} } };
