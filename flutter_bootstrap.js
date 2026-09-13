@@ -35,8 +35,19 @@ if (!window._flutter) {
 }
 _flutter.buildConfig = {"engineRevision":"83675ed27633283e7fc296c8bca22e841224c096","builds":[{"compileTarget":"dart2js","renderer":"canvaskit","mainJsPath":"main.dart.js"}]};
 
+
+// 앱을 페이지 전체가 아니라 #flutter-host 상자 안에 띄운다.
+// Flutter는 이 상자를 화면 전체로 인식하므로, PC에서는 폰 크기로 보이고
+// 코치마크 좌표도 상자 기준으로 맞게 계산된다.
 _flutter.loader.load({
   serviceWorkerSettings: {
-    serviceWorkerVersion: "1069879970" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */
-  }
+    serviceWorkerVersion: "732064659" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */,
+  },
+  onEntrypointLoaded: async function (engineInitializer) {
+    const appRunner = await engineInitializer.initializeEngine({
+      hostElement: document.querySelector("#flutter-host"),
+    });
+    await appRunner.runApp();
+    document.body.classList.add("ready");
+  },
 });

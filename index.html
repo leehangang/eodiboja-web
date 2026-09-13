@@ -31,16 +31,66 @@
 
   <title>어디보자</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    :root {
+      --page: #EEF3F2;
+      --bezel: #15191C;
+      --ink: #39414A;
+      --muted: #7C868B;
+      --mint: #00C7A9;
+    }
+    html, body { margin: 0; height: 100%; background: var(--page); }
+    body {
+      font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* 폰 (기본): 앱이 화면을 꽉 채운다 */
+    .stage { position: fixed; inset: 0; }
+    .phone { position: absolute; inset: 0; background: #fff; }
+    #flutter-host { position: absolute; inset: 0; }
+    .loading {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      color: var(--muted); font-size: 15px; letter-spacing: -0.01em;
+    }
+    body.ready .loading { display: none; }
+    .caption { display: none; }
+
+    /* PC·태블릿: 가운데 폰 프레임 안에 앱을 띄운다 */
+    @media (min-width: 640px) and (min-height: 700px) {
+      .stage {
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+        background:
+          radial-gradient(900px 700px at 85% 0%, rgba(0,199,169,.10), transparent 60%),
+          radial-gradient(700px 600px at 0% 100%, rgba(226,241,94,.16), transparent 60%),
+          var(--page);
+      }
+      .phone {
+        position: relative; inset: auto;
+        width: 390px; height: min(844px, calc(100dvh - 120px));
+        border: 12px solid var(--bezel); border-radius: 50px; overflow: hidden;
+        box-shadow: 0 30px 70px rgba(14, 40, 36, .22), 0 4px 12px rgba(0, 0, 0, .08);
+      }
+      .caption {
+        display: block; text-align: center; line-height: 1.6;
+      }
+      .caption b { display: block; font-size: 17px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+      .caption span { font-size: 13px; color: var(--muted); }
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <div class="stage">
+    <div class="phone">
+      <div class="loading">어디보자를 불러오는 중…</div>
+      <div id="flutter-host"></div>
+    </div>
+    <div class="caption">
+      <b>어디보자 · 고령자를 위한 iM뱅크 인앱 음성 안내</b>
+      <span>마이크를 허용하면 혼잣말에 반응합니다 · Chrome 권장 · 폰에서 열면 전체 화면으로 보입니다</span>
+    </div>
+  </div>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
