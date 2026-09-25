@@ -41,7 +41,7 @@ _flutter.buildConfig = {"engineRevision":"83675ed27633283e7fc296c8bca22e841224c0
 // 코치마크 좌표도 상자 기준으로 맞게 계산된다.
 _flutter.loader.load({
   serviceWorkerSettings: {
-    serviceWorkerVersion: "732064659" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */,
+    serviceWorkerVersion: "3618938471" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */,
   },
   onEntrypointLoaded: async function (engineInitializer) {
     const appRunner = await engineInitializer.initializeEngine({
